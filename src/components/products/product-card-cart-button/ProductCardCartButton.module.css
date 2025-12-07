@@ -1,0 +1,27 @@
+/* Cart button (top-right, always visible) */
+.cartButton {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 3;
+  background: transparent;
+  border: none;
+  padding: 0.3rem;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* Hover effect */
+.cartButton:hover {
+  transform: scale(1.1);
+}
+
+/* Active (in-cart) state */
+.cartButtonActive {
+  color: var(--color-accent-dark);
+  transform: scale(1.1);
+}

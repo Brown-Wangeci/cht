@@ -1,0 +1,78 @@
+.dropdown {
+  position: relative;
+}
+
+/* Trigger button */
+.trigger {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  transition: border-color 0.15s ease;
+}
+
+.trigger:hover .triggerLabel {
+  text-decoration: underline;
+}
+
+.triggerLabel {
+  display: inline-block;
+}
+
+/* Dropdown menu panel */
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  padding: var(--space-xs) 0;
+  min-width: 180px;
+  z-index: 10;
+}
+
+/* Option rows */
+.option {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: var(--space-xs) var(--space-md);
+  text-align: left;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.15s ease;
+}
+
+/* Hover → underline text only (no background) */
+.option:hover .optionLabel {
+  text-decoration: underline;
+}
+
+/* Selected → underline text */
+.optionSelected .optionLabel {
+  text-decoration: underline;
+  color: var(--color-text-primary);
+}
+
+/* For hover and selected, target only the text */
+.optionLabel {
+  display: inline-block;
+}
+
+/* Mobile tweaks */
+@media (max-width: 768px) {
+  .trigger {
+    width: auto;
+  }
+}

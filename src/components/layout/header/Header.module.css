@@ -1,0 +1,189 @@
+.headerWrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: calc(var(--header-height) + 40px);
+    z-index: 100;
+}
+
+.smallBanner {
+    height: 40px;
+    background-color: var(--color-background-alt);
+    color: var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xs);
+    font-weight: 500;
+}
+
+.header {
+    /* position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%; */
+    height: var(--header-height);
+    transition: background-color 0.3s ease, border-bottom-color 0.3s ease;
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, .4);
+    backdrop-filter: blur(100px);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    z-index: 101; /* Ensure logo stays readable */
+    text-decoration: none;
+}
+
+.links {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.link {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    position: relative;
+    padding: 0.5rem 0;
+    text-decoration: none;
+    line-height: var(--leading-tight);
+    /* text-transform: uppercase; */
+}
+
+.cart {
+    margin-left: 1rem;
+    color: var(--color-text-secondary);
+    display: grid;
+    place-items: center;
+}
+
+.link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    opacity: 0;
+    height: 1px;
+    background-color: var(--color-accent);
+    /* transition: width var(--transition-slow); */
+    transition: opacity var(--transition-slow);
+}
+
+.link:hover::after,
+.link.active::after {
+    opacity: 1;
+}
+
+.link.active {
+    color: var(--color-accent);
+}
+
+.mobileToggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    transition: var(--transition-slow) ease-in-out;
+}
+
+
+.mobileMenuOverlay {
+    display: none;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .links {
+        display: none;
+    }
+
+    .mobileToggle {
+        display: block;
+    }
+
+    /* The Full Screen Overlay */
+    .mobileMenuOverlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        height: 100svh;
+        background-color: var(--color-background);
+        z-index: 200; /* Higher than the header */
+        padding-top: 0;
+        overflow-y: auto;
+        transition: var(--transition-slow) ease-in-out;
+
+        }
+    
+    /* The Header Row inside the open menu */
+    .mobileMenuHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: var(--header-height);
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: 2rem;
+        width: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        padding: 0 1.5rem;
+    }
+
+    .closeButton {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--color-text-primary);
+        padding: 0.5rem;
+    }
+
+    .mobileLinksContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Center links horizontally */
+        gap: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    .mobileLink {
+        font-size: 1.5rem; /* Larger font for mobile */
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .mobileCart {
+        color: var(--color-text-secondary);
+        display: grid;
+        place-items: center;
+    }
+
+    .mobileLink:hover,
+    .mobileLink.active {
+        color: var(--color-accent);
+    }
+}

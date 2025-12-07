@@ -1,0 +1,23 @@
+/* QuantitySelector.module.css */
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.button {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  font-size: var(--text-md);
+  color: var(--color-text-primary);
+}
+
+.value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: var(--text-md);
+}

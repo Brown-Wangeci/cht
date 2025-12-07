@@ -1,0 +1,84 @@
+/* Flat card, no border, no shadow */
+.card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+/* Image wrapper */
+.imageWrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; /* square ratio */
+  overflow: hidden;
+}
+
+/* Image with zoom hover */
+.image {
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.card:hover .image {
+  transform: scale(1.05);
+}
+
+/* Badge placement */
+.badgeWrapper {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+}
+
+/* Info section */
+.info {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Product name */
+.name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  width: fit-content;
+  position: relative;
+}
+
+.card:hover .name {
+  text-decoration: underline;
+}
+
+/* Price Row */
+.priceRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+/* Old price */
+.originalPrice {
+  text-decoration: line-through;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Current price */
+.currentPrice {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Discount */
+.discount {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-error);
+}

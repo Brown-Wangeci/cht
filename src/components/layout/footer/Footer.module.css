@@ -1,0 +1,127 @@
+.footer {
+    width : 100%;
+    background-color: var(--color-background-alt);
+    padding: 4rem 0 2rem;
+    margin-top: auto;
+    border-top: 1px solid var(--color-border);
+}
+
+.content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 3rem;
+    margin-bottom: 3rem;
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.brand {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-on-dark);
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+}
+
+.heading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-on-dark);
+}
+
+.description {
+    color: var(--color-text-on-dark-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.link {
+    color: var(--color-text-on-dark-muted);
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.link:hover {
+    color: var(--color-accent-on-dark);
+}
+
+.newsletter {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border-on-dark);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+/* .button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-accent-on-dark);
+    color: var(--color-background-alt);
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: not-allowed;
+    opacity: 0.6;
+    transition: background-color 0.2s;
+} */
+
+.button {
+    padding: 0.75rem 1.5rem;
+    background-color: transparent;
+    color: var(--color-surface);
+    border: 2px solid var(--color-surface);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0.6;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    cursor: pointer;
+}
+
+.bottom {
+    border-top: 1px solid var(--color-border-on-dark);
+    padding-top: 2rem;
+    text-align: center;
+    color: var(--color-text-on-dark-muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .newsletter {
+        flex-direction: column;
+    }
+}

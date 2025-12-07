@@ -1,0 +1,83 @@
+.hero {
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  position: relative;
+  height: calc(100vh - var(--header-height));
+  display: grid;
+  place-items: center;
+}
+
+/* Centered text over image */
+.content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: fit-content;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  z-index: 2; /* ensure above overlay */
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: var(--text-5xl);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-surface);
+  letter-spacing: -0.04em;
+  /* white-space: nowrap;  removed to avoid overflow */
+}
+
+.subtitle {
+  font-size: var(--text-lg);
+  color: var(--color-surface-hover);
+  line-height: var(--leading-relaxed);
+  max-width: 500px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+/* Full-bleed hero image */
+.imageWrapper {
+  position: relative;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.image {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1; /* below content */
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .container{
+    height: calc(100lvh - var(--header-height));
+  }
+  .title {
+    font-size: var(--text-4xl);
+  }
+  .subtitle {
+    font-size: var(--text-base);
+  }
+
+}

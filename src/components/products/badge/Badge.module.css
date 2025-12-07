@@ -1,0 +1,40 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
+}
+
+/* default neutral badge */
+.default {
+  background-color: var(--color-background-alt);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+/* green “SHOP” style */
+.shop {
+  background-color: var(--color-accent);
+  color: var(--color-background);
+  border-color: var(--color-accent-dark);
+}
+
+/* dark “SOLD OUT” style */
+.soldOut {
+  background-color: var(--color-text-primary);
+  color: var(--color-background);
+  border-color: var(--color-text-primary);
+}
+
+/* lighter accent – e.g. “NEW” */
+.new {
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent-dark);
+  border-color: var(--color-accent-light);
+}

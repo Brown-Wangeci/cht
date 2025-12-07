@@ -1,0 +1,18 @@
+/* RelatedProductsSection.module.css */
+.section {
+  margin-top: var(--space-4xl);
+}
+
+.title {
+  text-align: center;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--space-2xl);
+  color: var(--color-text-primary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-lg);
+}

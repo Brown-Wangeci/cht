@@ -1,0 +1,33 @@
+/* Breadcrumbs.module.css */
+.nav {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.link {
+  color: var(--color-text-secondary);
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.current {
+  color: var(--color-text-muted);
+}
+
+.separator {
+  margin: 0 4px;
+}

@@ -1,0 +1,35 @@
+.wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  height: fit-content;
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.icon {
+    position: absolute;
+    right: var(--space-md);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+}
+
+/* Mobile: let it breathe edge-to-edge */
+@media (max-width: 768px) {
+  .wrapper {
+    max-width: 100%;
+  }
+}

@@ -1,0 +1,120 @@
+.dropdown {
+  position: relative;
+}
+
+/* Trigger stays the same */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  /* border: 1px solid var(--color-border); */
+  border: none;
+  background-color: var(--color-background);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+/* Active trigger looks slightly stronger like mrbeast */
+.triggerActive {
+  border-color: var(--color-text-primary);
+}
+
+/* Minimal hover — no background, underline text */
+.trigger:hover span {
+  text-decoration: underline;
+}
+
+/* Dropdown menu container */
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  z-index: 20;
+  padding: var(--space-xs);
+}
+
+.menuInner {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* Option row */
+.item {
+  width: 100%;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Hover → underline the label, no background */
+.item:hover .itemLabel {
+  text-decoration: underline;
+}
+
+/* Selected → underline label always, like mrbeast.store */
+.itemSelected .itemLabel {
+  text-decoration: underline;
+  color: var(--color-text-primary);
+}
+
+/* Checkbox styles stay the same */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.checkboxInner {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background-color: transparent;
+}
+
+.checkboxChecked {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-text-primary);
+}
+
+.checkboxChecked .checkboxInner {
+  background-color: var(--color-surface);
+}
+
+/* Clear button */
+.clear {
+  margin-top: 4px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.clear:hover {
+  text-decoration: underline;
+}
