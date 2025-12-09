@@ -1,9 +1,9 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Product } from "@/lib/products";
-import styles from "./ProductCard.module.css";
 import Badge from "../badge/Badge";
 import ProductCardCartButton from "../product-card-cart-button/ProductCardCartButton";
-import Link from "next/link";
+import styles from "./ProductCard.module.css";
 
 type ProductCardProps = {
   product: Product;
@@ -18,6 +18,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     originalPrice,
     isBestSeller,
     isNew,
+    slug,
   } = product;
 
   const hasDiscount = originalPrice && originalPrice > price;
@@ -38,17 +39,16 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <Link href={`/products/${product.slug}`} passHref>
-      <article className={styles.card}>
+    <article className={styles.card}>
+      {/* CLICKABLE AREA */}
+
+      <Link href={`/products/${slug}`} className={styles.clickArea}>
         <div className={styles.imageWrapper}>
           {badgeLabel && (
             <div className={styles.badgeWrapper}>
               <Badge label={badgeLabel} variant={badgeVariant} />
             </div>
           )}
-
-          {/* Client-side cart button */}
-          <ProductCardCartButton productId={id} />
 
           <Image
             src={image}
@@ -68,6 +68,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                 KSH {originalPrice.toFixed(2)}
               </span>
             )}
+
             <span className={styles.currentPrice}>
               KSH {price.toFixed(2)}
             </span>
@@ -77,7 +78,10 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
         </div>
-      </article>
-    </Link>
+      </Link>
+
+      {/* CART BUTTON OUTSIDE LINK */}
+      <ProductCardCartButton productId={id} />
+    </article>
   );
 }

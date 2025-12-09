@@ -11,7 +11,7 @@ type Props = {
 
 export default function ProductGallery({ product }: Props) {
   // Allow for expansion: product.images ?? fallback to single image
-  const images = [product.image];
+  const images = product.images;
   const [activeIndex, setActiveIndex] = useState(0);
 
   return (
