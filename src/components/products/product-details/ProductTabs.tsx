@@ -8,7 +8,6 @@ type Props = {
   description: string;
   ingredients: string;
   tastingNotes: string[];
-  reviewCount: number;
 };
 
 const TABS = ["Description", "Ingredients & Brewing", "Customer Reviews"] as const;
@@ -18,7 +17,6 @@ export default function ProductTabs({
   description,
   ingredients,
   tastingNotes,
-  reviewCount,
 }: Props) {
   const [active, setActive] = useState<TabKey>("Description");
 
@@ -71,7 +69,7 @@ export default function ProductTabs({
         {active === "Customer Reviews" && (
           <div>
             <h3 className={styles.panelTitle}>
-              Customer Reviews ({reviewCount})
+              Customer Reviews
             </h3>
             <p className={styles.paragraph}>
               Reviews will appear here. For now, enjoy your tea knowing others

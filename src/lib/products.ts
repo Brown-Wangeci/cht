@@ -6,9 +6,11 @@ export type Product = {
     name: string;
     price: number;
     originalPrice?: number;
-    rating: number;
-    reviewCount: number;
-    image: string;
+    // rating: number; // Removed per new schema
+    // reviewCount: number; // Removed per new schema
+    // image: string; // Removed in favor of images array
+    images: string[];
+    soldOut: boolean;
     description: string;
     category: string;
     isNew: boolean;

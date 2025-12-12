@@ -2,11 +2,15 @@
     align-items: center;
     justify-content: center;
     /* gap: var(--space-xs); */
-    padding: var(--space-sm) var(--space-xl);
+    padding: 0 var(--space-xl);
+    height: 48px;
+    /* Consistent height */
     font-family: var(--font-body);
     font-size: var(--text-base);
     font-weight: var(--font-medium);
     border-radius: var(--radius-md);
+    letter-spacing: 0.02em;
+    /* Premium definition */
     white-space: nowrap;
     border: none;
     cursor: pointer;

@@ -1,21 +1,62 @@
-// components/products/product-details/ProductSummary.tsx
-import { Product } from "@/lib/products";
+"use client";
+
+import { useMemo } from "react";
+import type { Product } from "@/lib/products";
 import styles from "./ProductSummary.module.css";
 import Button from "@/components/ui/button/Button";
-import { Star, Truck, ShieldCheck } from "lucide-react";
+import { Truck, ShieldCheck } from "lucide-react";
 import QuantitySelector from "./QuantitySelector";
+import { useCartStore } from "@/lib/stores/cart";
 
 type Props = {
-  product: Product;
+  product: Product & { soldOut?: boolean };
 };
 
 export default function ProductSummary({ product }: Props) {
-  const { name, price, originalPrice, rating, reviewCount, origin } = product;
+  const { name, price, originalPrice, origin } = product;
+  const soldOut = product.soldOut ?? false;
 
-  const hasDiscount = originalPrice && originalPrice > price;
-  const discountPercent = hasDiscount
-    ? Math.round(((originalPrice - price) / originalPrice) * 100)
-    : null;
+  const items = useCartStore((s) => s.items);
+  const addItem = useCartStore((s) => s.addItem);
+  const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
+
+  const cartItem = useMemo(
+    () => items.find((i) => i.id === product.id),
+    [items, product.id]
+  );
+
+  const isInCart = !!cartItem;
+
+  // ✅ Exactly what you asked: store quantity if present, else 1
+  const quantity = cartItem?.quantity ?? 1;
+
+  const { hasDiscount, discountPercent } = useMemo(() => {
+    const has = !!originalPrice && originalPrice > price && !soldOut;
+    return {
+      hasDiscount: has,
+      discountPercent: has
+        ? Math.round(((originalPrice! - price) / originalPrice!) * 100)
+        : null,
+    };
+  }, [originalPrice, price, soldOut]);
+
+  const handleIncrement = () => {
+    if (soldOut) return;
+    // ✅ works for both: not-in-cart (adds) + in-cart (increments)
+    addItem(product);
+  };
+
+  const handleDecrement = () => {
+    if (soldOut) return;
+    if (!isInCart) return; // not in cart -> do nothing
+    decreaseItemQuantity(product.id);
+  };
+
+  const handleAddToCart = () => {
+    if (soldOut) return;
+    if (isInCart) return;
+    addItem(product);
+  };
 
   return (
     <section className={styles.summary}>
@@ -25,23 +66,10 @@ export default function ProductSummary({ product }: Props) {
         An exquisite, full-bodied tea from the heart of {origin}.
       </p>
 
-      <div className={styles.ratingRow}>
-        <div className={styles.stars}>
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <Star
-              key={idx}
-              size={16}
-              className={idx < Math.round(rating) ? styles.starFilled : styles.starEmpty}
-            />
-          ))}
-        </div>
-        <span className={styles.ratingValue}>{rating.toFixed(1)}</span>
-        <span className={styles.reviewCount}>({reviewCount} reviews)</span>
-      </div>
-
       <div className={styles.priceBlock}>
         <div className={styles.priceRow}>
           <span className={styles.currentPrice}>KSH {price.toFixed(2)}</span>
+
           {hasDiscount && originalPrice && (
             <>
               <span className={styles.originalPrice}>
@@ -55,17 +83,35 @@ export default function ProductSummary({ product }: Props) {
         </div>
       </div>
 
-      <div className={styles.controlsRow}>
-        <QuantitySelector />
-      </div>
+      {!soldOut && (
+        <div className={styles.controlsRow}>
+          <QuantitySelector
+            value={quantity}
+            onIncrement={handleIncrement}
+            onDecrement={handleDecrement}
+            min={1}
+            max={99}
+            // ✅ if not in cart, "-" should be disabled (since value is just the default 1)
+            disableDecrement={!isInCart}
+          />
+        </div>
+      )}
 
       <div className={styles.actionsRow}>
-        <Button variant="primary" className={styles.primaryButton}>
-          Add to Cart
+        <Button
+          variant="primary"
+          className={styles.primaryButton}
+          disabled={soldOut}
+          onClick={handleAddToCart}
+        >
+          {soldOut ? "Sold Out" : isInCart ? "Added to Cart" : "Add to Cart"}
         </Button>
-        <Button variant="secondary" className={styles.secondaryButton}>
-          Buy Now
-        </Button>
+
+        {!soldOut && (
+          <Button variant="secondary" className={styles.secondaryButton}>
+            Buy Now
+          </Button>
+        )}
       </div>
 
       <div className={styles.trustRow}>

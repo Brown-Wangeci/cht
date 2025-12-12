@@ -1,6 +1,7 @@
 /* QuantitySelector.module.css */
 .wrapper {
   display: inline-flex;
+  width: fit-content;
   align-items: center;
   border-radius: 999px;
   border: 1px solid var(--color-border);

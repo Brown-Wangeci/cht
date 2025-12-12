@@ -13,15 +13,19 @@ export default function ProductCard({ product }: ProductCardProps) {
   const {
     id,
     name,
-    image,
+    images = [],
     price,
     originalPrice,
     isBestSeller,
     isNew,
+    soldOut,
     slug,
   } = product;
 
-  const hasDiscount = originalPrice && originalPrice > price;
+  // Safe accessor for main image
+  const mainImage = images[0] || "/placeholder.png";
+
+  const hasDiscount = originalPrice && originalPrice > price && !soldOut;
 
   const discountPercent = hasDiscount
     ? Math.round(((originalPrice - price) / originalPrice) * 100)
@@ -30,7 +34,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   let badgeLabel: string | null = null;
   let badgeVariant: any = "default";
 
-  if (isBestSeller) {
+  if (soldOut) {
+    badgeLabel = "SOLD OUT";
+    badgeVariant = "soldOut";
+  } else if (isBestSeller) {
     badgeLabel = "SHOP";
     badgeVariant = "shop";
   } else if (isNew) {
@@ -39,7 +46,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <article className={styles.card}>
+    <article className={`${styles.card} ${soldOut ? styles.soldOut : ""}`}>
       {/* CLICKABLE AREA */}
 
       <Link href={`/products/${slug}`} className={styles.clickArea}>
@@ -51,7 +58,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
 
           <Image
-            src={image}
+            src={mainImage}
             alt={name}
             fill
             className={styles.image}
@@ -81,7 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       {/* CART BUTTON OUTSIDE LINK */}
-      <ProductCardCartButton productId={id} />
+      {!soldOut && <ProductCardCartButton product={product} />}
     </article>
   );
 }

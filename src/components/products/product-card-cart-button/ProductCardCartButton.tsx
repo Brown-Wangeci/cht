@@ -1,39 +1,34 @@
 "use client";
 
-import { useState } from "react";
 import { ShoppingCart, Check } from "lucide-react";
 import styles from "./ProductCardCartButton.module.css";
+import { useCartStore } from "@/lib/stores/cart";
+import type { Product } from "@/lib/products";
 
-type ProductCardCartButtonProps = {
-  productId: string;
+type Props = {
+  product: Product;
 };
 
-export default function ProductCardCartButton({
-  productId,
-}: ProductCardCartButtonProps) {
-  const [inCart, setInCart] = useState(false);
+export default function ProductCardCartButton({ product }: Props) {
+  const inCart = useCartStore((s) => s.items.some((i) => i.id === product.id));
+  const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    setInCart((prev) => !prev);
-
-    // later: plug into real cart store using productId
+    e.preventDefault(); // important if button sits inside a Link card
+    if (inCart) removeItem(product.id);
+    else addItem(product);
   };
 
   return (
     <button
       type="button"
-      className={`${styles.cartButton} ${
-        inCart ? styles.cartButtonActive : ""
-      }`}
+      className={`${styles.cartButton} ${inCart ? styles.cartButtonActive : ""}`}
       onClick={handleClick}
       aria-label={inCart ? "Remove from cart" : "Add to cart"}
     >
-      {inCart ? (
-        <Check size={20} strokeWidth={2} />
-      ) : (
-        <ShoppingCart size={20} strokeWidth={2} />
-      )}
+      {inCart ? <Check size={20} strokeWidth={2} /> : <ShoppingCart size={20} strokeWidth={2} />}
     </button>
   );
 }

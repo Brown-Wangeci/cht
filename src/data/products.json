@@ -5,9 +5,10 @@
         "name": "Silver Needle White Tea",
         "price": 28.00,
         "originalPrice": 35.00,
-        "rating": 4.8,
-        "reviewCount": 124,
-        "image": "/images/silver-needle.png",
+        "images": [
+            "/images/silver-needle.png"
+        ],
+        "soldOut": false,
         "description": "A delicate and rare white tea, harvested only for a few days each year. Known for its subtle sweetness and floral aroma.",
         "category": "White Tea",
         "isNew": true,
@@ -26,9 +27,6 @@
         "slug": "imperial-dragon-well",
         "name": "Imperial Dragon Well",
         "price": 42.00,
-        "rating": 4.9,
-        "reviewCount": 89,
-        "image": "/images/dragon-well.png",
         "images": [
             "/images/dragon-well.png",
             "/images/ruby-black.png",
@@ -38,6 +36,7 @@
             "/images/ruby-black.png",
             "/images/jasmine-pearls.png"
         ],
+        "soldOut": false,
         "description": "Our finest Longjing green tea. Flat, smooth leaves that produce a chestnut-like aroma and a refreshing, sweet taste.",
         "category": "Green Tea",
         "isNew": false,
@@ -56,9 +55,10 @@
         "slug": "ruby-black-tea",
         "name": "Ruby Black Tea",
         "price": 24.00,
-        "rating": 4.7,
-        "reviewCount": 56,
-        "image": "/images/ruby-black.png",
+        "images": [
+            "/images/ruby-black.png"
+        ],
+        "soldOut": false,
         "description": "A robust black tea with natural hints of cinnamon and mint. Perfect for a morning boost.",
         "category": "Black Tea",
         "isNew": false,
@@ -77,9 +77,10 @@
         "slug": "jasmine-pearls",
         "name": "Jasmine Pearls",
         "price": 30.00,
-        "rating": 4.9,
-        "reviewCount": 210,
-        "image": "/images/jasmine-pearls.png",
+        "images": [
+            "/images/jasmine-pearls.png"
+        ],
+        "soldOut": false,
         "description": "Hand-rolled green tea pearls scented with fresh jasmine flowers. Unfurls beautifully in the cup.",
         "category": "Green Tea",
         "isNew": false,
@@ -99,9 +100,10 @@
         "name": "Aged Pu-erh (2015)",
         "price": 55.00,
         "originalPrice": 65.00,
-        "rating": 4.6,
-        "reviewCount": 34,
-        "image": "/images/puerh.png",
+        "images": [
+            "/images/puerh.png"
+        ],
+        "soldOut": true,
         "description": "A smooth, earthy fermented tea aged to perfection. Rich, dark liquor with no bitterness.",
         "category": "Pu-erh",
         "isNew": false,
@@ -120,9 +122,10 @@
         "slug": "milk-oolong",
         "name": "Milk Oolong",
         "price": 32.00,
-        "rating": 4.8,
-        "reviewCount": 156,
-        "image": "/images/milk-oolong.png",
+        "images": [
+            "/images/milk-oolong.png"
+        ],
+        "soldOut": false,
         "description": "A unique oolong with a natural creamy, milky texture and taste. No artificial flavoring added.",
         "category": "Oolong",
         "isNew": true,

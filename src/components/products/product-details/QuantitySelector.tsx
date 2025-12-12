@@ -1,22 +1,54 @@
-// components/products/product-details/QuantitySelector.tsx
 "use client";
 
-import { useState } from "react";
 import styles from "./QuantitySelector.module.css";
 
-export default function QuantitySelector() {
-  const [qty, setQty] = useState(1);
+type Props = {
+  value: number;
+  min?: number;
+  max?: number;
 
-  const increment = () => setQty((q) => q + 1);
-  const decrement = () => setQty((q) => (q > 1 ? q - 1 : 1));
+  onIncrement: () => void;
+  onDecrement: () => void;
+
+  disableDecrement?: boolean;
+  disableIncrement?: boolean;
+};
+
+export default function QuantitySelector({
+  value,
+  min = 1,
+  max = 99,
+  onIncrement,
+  onDecrement,
+  disableDecrement,
+  disableIncrement,
+}: Props) {
+  const canDecrement = value > min && !disableDecrement;
+  const canIncrement = value < max && !disableIncrement;
 
   return (
     <div className={styles.wrapper} aria-label="Quantity selector">
-      <button type="button" onClick={decrement} className={styles.button}>
+      <button
+        type="button"
+        onClick={() => canDecrement && onDecrement()}
+        className={styles.button}
+        disabled={!canDecrement}
+        aria-label="Decrease quantity"
+      >
         −
       </button>
-      <span className={styles.value}>{qty}</span>
-      <button type="button" onClick={increment} className={styles.button}>
+
+      <span className={styles.value} aria-live="polite">
+        {value}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => canIncrement && onIncrement()}
+        className={styles.button}
+        disabled={!canIncrement}
+        aria-label="Increase quantity"
+      >
         +
       </button>
     </div>

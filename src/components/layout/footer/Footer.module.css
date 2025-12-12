@@ -1,5 +1,5 @@
 .footer {
-    width : 100%;
+    width: 100%;
     background-color: var(--color-background-alt);
     padding: 4rem 0 2rem;
     margin-top: auto;
@@ -55,6 +55,8 @@
 
 .link:hover {
     color: var(--color-accent-on-dark);
+    text-decoration: underline;
+    text-underline-offset: 4px;
 }
 
 .newsletter {

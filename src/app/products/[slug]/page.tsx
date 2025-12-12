@@ -1,4 +1,3 @@
-// app/products/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import Container from "@/components/common/container/Container";
 import { getProductBySlug, getRelatedProducts } from "@/lib/products";
@@ -10,16 +9,15 @@ import ProductTabs from "@/components/products/product-details/ProductTabs";
 import RelatedProductsSection from "@/components/products/product-details/RelatedProductsSection";
 
 type PageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export default async function ProductDetailsPage({ params }: PageProps) {
-  const product = await getProductBySlug("imperial-dragon-well");
-  console.log(product);
+  const { slug } = await params;
 
-  if (!product) {
-    notFound();
-  }
+  const product = await getProductBySlug(slug);
+
+  if (!product) notFound();
 
   const relatedProducts = await getRelatedProducts(product.slug);
 
@@ -30,7 +28,10 @@ export default async function ProductDetailsPage({ params }: PageProps) {
           items={[
             { label: "Home", href: "/" },
             { label: "Shop", href: "/products" },
-            { label: product.category, href: `/products?category=${encodeURIComponent(product.category)}` },
+            {
+              label: product.category,
+              href: `/products?category=${encodeURIComponent(product.category)}`,
+            },
             { label: product.name },
           ]}
         />
@@ -45,7 +46,6 @@ export default async function ProductDetailsPage({ params }: PageProps) {
             description={product.description}
             ingredients={product.ingredients}
             tastingNotes={product.tastingNotes}
-            reviewCount={product.reviewCount}
           />
         </section>
 
