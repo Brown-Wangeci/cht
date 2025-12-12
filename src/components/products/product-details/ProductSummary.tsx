@@ -110,7 +110,7 @@ export default function ProductSummary({ product }: Props) {
           disabled={soldOut}
           onClick={handlePrimaryClick}
         >
-          {soldOut ? "Sold Out" : isInCart ? "Added to Cart" : "Add to Cart"}
+          {soldOut ? "Sold Out" : isInCart ? "View in Cart" : "Add to Cart"}
         </Button>
 
         {!soldOut && (

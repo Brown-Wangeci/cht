@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import styles from "./Header.module.css";
 import Container from "@/components/common/container/Container";
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/lib/stores/cart";
+import useLockBodyScroll from "@/lib/hooks/useLockBodyScroll";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  const toggleCart = useCartStore((s) => s.toggleCart);
+  const isCartOpen = useCartStore((s) => s.isOpen);
   const cartCount = useCartStore((s) => s.count) ?? 0;
+
+  // ✅ lock scroll ONLY when mobile menu is open
+  // (cart drawer handles its own lock)
+  useLockBodyScroll(mobileMenuOpen && !isCartOpen);
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -26,19 +33,20 @@ export default function Header() {
     return pathname.startsWith(href);
   };
 
-  useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? "hidden" : "unset";
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [mobileMenuOpen]);
+
+  const openCartFromHeader = useCallback(() => {
+    toggleCart();
+  }, [toggleCart]);
+
+  const openCartFromMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+    toggleCart();
+  }, [toggleCart]);
 
   return (
     <div className={styles.headerWrapper}>
       <div className={styles.smallBanner}>
-        <p className={styles.annoucement}>
-          Free shipping on orders over Ksh. 6000!
-        </p>
+        <p className={styles.annoucement}>Free shipping on orders over Ksh. 6000!</p>
       </div>
 
       <header className={styles.header}>
@@ -48,6 +56,7 @@ export default function Header() {
               Logo
             </Link>
 
+            {/* Desktop Navigation */}
             <div className={styles.links}>
               {navLinks.map((link) => (
                 <Link
@@ -59,15 +68,21 @@ export default function Header() {
                 </Link>
               ))}
 
-              {/* Keep your /cart link for now (later you’ll switch to drawer open) */}
-              <Link href="/cart" className={styles.cart} aria-label="Cart">
+              {/* Cart button (drawer) */}
+              <button
+                type="button"
+                className={styles.cart}
+                onClick={openCartFromHeader}
+                aria-label="Open cart"
+              >
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <ShoppingCart size={20} />
                   {cartCount > 0 && <CartBadge count={cartCount} />}
                 </div>
-              </Link>
+              </button>
             </div>
 
+            {/* Mobile Menu Toggle */}
             <button
               className={styles.mobileToggle}
               onClick={() => setMobileMenuOpen(true)}
@@ -78,12 +93,14 @@ export default function Header() {
           </nav>
         </Container>
 
+        {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
           <div className={styles.mobileMenuOverlay}>
             <div className={styles.mobileMenuHeader}>
               <Link href="/" className={styles.logo} onClick={() => setMobileMenuOpen(false)}>
                 Logo
               </Link>
+
               <button
                 className={styles.closeButton}
                 onClick={() => setMobileMenuOpen(false)}
@@ -105,12 +122,18 @@ export default function Header() {
                 </Link>
               ))}
 
-              <Link href="/cart" className={styles.mobileCart} aria-label="Cart">
+              {/* Mobile cart button (drawer) */}
+              <button
+                type="button"
+                className={styles.mobileCart}
+                onClick={openCartFromMobileMenu}
+                aria-label="Open cart"
+              >
                 <div style={{ position: "relative" }}>
                   <ShoppingCart size={28} />
                   {cartCount > 0 && <CartBadge count={cartCount} />}
                 </div>
-              </Link>
+              </button>
             </div>
           </div>
         )}

@@ -18,13 +18,11 @@ export default function RelatedProductsSection({ products }: Props) {
       title="You Might Also Like"
       align="center"
     >
-      <Container>
-        <div className={styles.grid}>
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </Container>
+      <div className={styles.grid}>
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
     </Section>
   );
 }
