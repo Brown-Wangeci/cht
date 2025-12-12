@@ -19,6 +19,7 @@ export default function ProductSummary({ product }: Props) {
   const items = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
   const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
+  const openCart = useCartStore((s) => s.openCart);
 
   const cartItem = useMemo(
     () => items.find((i) => i.id === product.id),
@@ -27,7 +28,7 @@ export default function ProductSummary({ product }: Props) {
 
   const isInCart = !!cartItem;
 
-  // ✅ Exactly what you asked: store quantity if present, else 1
+  // Reads directly from cart if present, else defaults to 1
   const quantity = cartItem?.quantity ?? 1;
 
   const { hasDiscount, discountPercent } = useMemo(() => {
@@ -42,7 +43,7 @@ export default function ProductSummary({ product }: Props) {
 
   const handleIncrement = () => {
     if (soldOut) return;
-    // ✅ works for both: not-in-cart (adds) + in-cart (increments)
+    // Works for both: not-in-cart (adds) and in-cart (increments)
     addItem(product);
   };
 
@@ -52,10 +53,16 @@ export default function ProductSummary({ product }: Props) {
     decreaseItemQuantity(product.id);
   };
 
-  const handleAddToCart = () => {
+  const handlePrimaryClick = () => {
     if (soldOut) return;
-    if (isInCart) return;
-    addItem(product);
+
+    if (isInCart) {
+      openCart(); // ✅ open drawer if already added
+      return;
+    }
+
+    addItem(product); // ✅ add if not in cart
+    openCart(); // optional: comment out if you don't want auto-open on first add
   };
 
   return (
@@ -91,7 +98,6 @@ export default function ProductSummary({ product }: Props) {
             onDecrement={handleDecrement}
             min={1}
             max={99}
-            // ✅ if not in cart, "-" should be disabled (since value is just the default 1)
             disableDecrement={!isInCart}
           />
         </div>
@@ -102,7 +108,7 @@ export default function ProductSummary({ product }: Props) {
           variant="primary"
           className={styles.primaryButton}
           disabled={soldOut}
-          onClick={handleAddToCart}
+          onClick={handlePrimaryClick}
         >
           {soldOut ? "Sold Out" : isInCart ? "Added to Cart" : "Add to Cart"}
         </Button>
