@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Kiriti Tea",
+  title: "Logo Tea",
   description: "Premium tea e-commerce",
 };
 
