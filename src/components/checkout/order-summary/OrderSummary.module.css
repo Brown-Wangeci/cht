@@ -1,0 +1,192 @@
+/* components/checkout/order-summary/OrderSummary.module.css */
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: var(--space-lg);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+}
+
+.editLink {
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  width: fit-content;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.thumbImg {
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
+.qtyBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  background: var(--color-accent);
+  color: var(--color-background);
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemName {
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.itemTotal {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-md) 0;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.label {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.value {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.valueMuted {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+
+.totalLabel {
+  color: var(--color-text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.totalValue {
+  color: var(--color-text-primary);
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.totalValueMuted {
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-semibold);
+}
+
+.note {
+  margin-top: var(--space-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  line-height: var(--leading-relaxed);
+}
+
+/* Server skeleton */
+.skeletonBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.skeletonRow {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-border-light);
+}
+
+.empty {
+  padding-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.emptyTitle {
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.emptyText {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.emptyCta {
+  margin-top: var(--space-sm);
+  color: var(--color-accent);
+  text-decoration: underline;
+  width: fit-content;
+}

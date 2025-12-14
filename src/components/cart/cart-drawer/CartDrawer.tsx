@@ -11,13 +11,20 @@ export default function CartDrawer() {
   const isOpen = useCartStore((s) => s.isOpen);
   const closeCart = useCartStore((s) => s.closeCart);
   const clearCart = useCartStore((s) => s.clearCart);
+  const rehydrateCart = useCartStore((s) => s.rehydrateCart);
 
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
 
   useLockBodyScroll(isOpen);
 
-  // ESC to close + lock body scroll
+  // Rehydrate cart when opened
+  useEffect(() => {
+    if (!isOpen) return;
+    void rehydrateCart();
+  }, [isOpen, rehydrateCart]);
+
+  // ESC to close
   useEffect(() => {
     if (!isOpen) return;
 
