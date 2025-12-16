@@ -9,8 +9,9 @@ import { useEffect, useState } from "react";
 export default function OrderSummaryLive() {
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
+  const syncing = useCartStore((s) => s.syncing);
+  const dirty = useCartStore((s) => s.dirty);
 
-  // ✅ avoid any hydration mismatch warnings
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
@@ -25,6 +26,12 @@ export default function OrderSummaryLive() {
           Edit
         </Link>
       </div>
+
+      {(syncing || dirty) && hasItems ? (
+        <p style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
+          Updating cart…
+        </p>
+      ) : null}
 
       {!hasItems ? (
         <div className={styles.empty}>
@@ -53,10 +60,7 @@ export default function OrderSummaryLive() {
                       />
                     ) : null}
 
-                    <span
-                      className={styles.qtyBadge}
-                      aria-label={`Quantity ${item.quantity}`}
-                    >
+                    <span className={styles.qtyBadge} aria-label={`Quantity ${item.quantity}`}>
                       {item.quantity}
                     </span>
                   </div>

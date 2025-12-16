@@ -21,48 +21,50 @@ export default function ProductSummary({ product }: Props) {
   const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
   const openCart = useCartStore((s) => s.openCart);
 
+  const syncing = useCartStore((s) => s.syncing);
+  const pending = useCartStore((s) => !!s.pendingById[product.id]);
+  const dirty = useCartStore((s) => s.dirty);
+
+  const disabled = soldOut || syncing || dirty || pending;
+
   const cartItem = useMemo(
     () => items.find((i) => i.id === product.id),
     [items, product.id]
   );
 
   const isInCart = !!cartItem;
-
-  // Reads directly from cart if present, else defaults to 1
   const quantity = cartItem?.quantity ?? 1;
 
   const { hasDiscount, discountPercent } = useMemo(() => {
     const has = !!originalPrice && originalPrice > price && !soldOut;
     return {
       hasDiscount: has,
-      discountPercent: has
-        ? Math.round(((originalPrice! - price) / originalPrice!) * 100)
-        : null,
+      discountPercent: has ? Math.round(((originalPrice! - price) / originalPrice!) * 100) : null,
     };
   }, [originalPrice, price, soldOut]);
 
   const handleIncrement = () => {
-    if (soldOut) return;
-    // Works for both: not-in-cart (adds) and in-cart (increments)
+    if (disabled) return;
     addItem(product);
   };
 
   const handleDecrement = () => {
-    if (soldOut) return;
-    if (!isInCart) return; // not in cart -> do nothing
+    if (disabled) return;
+    if (!isInCart) return;
     decreaseItemQuantity(product.id);
   };
 
   const handlePrimaryClick = () => {
-    if (soldOut) return;
+    if (disabled) return;
 
     if (isInCart) {
-      openCart(); // ✅ open drawer if already added
+      openCart();
       return;
     }
 
-    addItem(product); // ✅ add if not in cart
-    openCart(); // optional: comment out if you don't want auto-open on first add
+    addItem(product);
+
+    openCart();
   };
 
   return (
@@ -79,9 +81,7 @@ export default function ProductSummary({ product }: Props) {
 
           {hasDiscount && originalPrice && (
             <>
-              <span className={styles.originalPrice}>
-                KSH {originalPrice.toFixed(2)}
-              </span>
+              <span className={styles.originalPrice}>KSH {originalPrice.toFixed(2)}</span>
               {discountPercent !== null && (
                 <span className={styles.discount}>{discountPercent}% off</span>
               )}
@@ -98,7 +98,8 @@ export default function ProductSummary({ product }: Props) {
             onDecrement={handleDecrement}
             min={1}
             max={99}
-            disableDecrement={!isInCart}
+            disableDecrement={!isInCart || disabled}
+            disableIncrement={disabled}
           />
         </div>
       )}
@@ -107,14 +108,20 @@ export default function ProductSummary({ product }: Props) {
         <Button
           variant="primary"
           className={styles.primaryButton}
-          disabled={soldOut}
+          disabled={disabled}
           onClick={handlePrimaryClick}
         >
-          {soldOut ? "Sold Out" : isInCart ? "View in Cart" : "Add to Cart"}
+          {soldOut
+            ? "Sold Out"
+            : syncing || pending || dirty
+              ? "Updating…"
+              : isInCart
+                ? "View in Cart"
+                : "Add to Cart"}
         </Button>
 
         {!soldOut && (
-          <Button variant="secondary" className={styles.secondaryButton}>
+          <Button variant="secondary" className={styles.secondaryButton} disabled={disabled}>
             Buy Now
           </Button>
         )}

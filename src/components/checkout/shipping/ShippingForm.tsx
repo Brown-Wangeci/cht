@@ -1,3 +1,4 @@
+import ShippingButton from "./shipping-button/ShippingButton";
 import styles from "./ShippingForm.module.css";
 import { submitShipping } from "@/lib/actions/checkout";
 
@@ -132,13 +133,17 @@ export default function ShippingForm() {
           />
         </div>
 
-        <button className={styles.primaryBtn} type="submit">
+        {/* <button className={styles.primaryBtn} type="submit">
           Continue to payment
         </button>
 
         <p className={styles.helper}>
           You can still go back and add items — only the order summary updates.
-        </p>
+        </p> */}
+        <ShippingButton
+            className={styles.primaryBtn} 
+            helperClassName={styles.helper}
+        />
       </form>
     </section>
   );

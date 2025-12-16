@@ -15,10 +15,22 @@ export default function CartDrawerItem({ item }: Props) {
   const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
 
+  const syncing = useCartStore((s) => s.syncing);
+  const pending = useCartStore((s) => !!s.pendingById[item.id]);
+  const dirty = useCartStore((s) => s.dirty);
+
+  const disabled = syncing || dirty || pending;
+
   return (
-    <div className={styles.item}>
+    <div className={styles.item} aria-busy={disabled}>
       <Link href={`/products/${item.slug}`} className={styles.imageWrap}>
-        <Image src={item.images[0]} alt={item.name} fill className={styles.image} sizes="56px" />
+        <Image
+          src={item.images[0]}
+          alt={item.name}
+          fill
+          className={styles.image}
+          sizes="56px"
+        />
       </Link>
 
       <div className={styles.info}>
@@ -26,9 +38,7 @@ export default function CartDrawerItem({ item }: Props) {
           {item.name}
         </Link>
 
-        <p className={styles.meta}>
-          {item.category}
-        </p>
+        <p className={styles.meta}>{item.category}</p>
       </div>
 
       <div className={styles.controls}>
@@ -38,6 +48,7 @@ export default function CartDrawerItem({ item }: Props) {
             className={styles.qtyBtn}
             onClick={() => decreaseItemQuantity(item.id)}
             aria-label="Decrease quantity"
+            disabled={disabled}
           >
             −
           </button>
@@ -49,6 +60,7 @@ export default function CartDrawerItem({ item }: Props) {
             className={styles.qtyBtn}
             onClick={() => addItem(item)}
             aria-label="Increase quantity"
+            disabled={disabled}
           >
             +
           </button>
@@ -59,6 +71,7 @@ export default function CartDrawerItem({ item }: Props) {
           className={styles.remove}
           onClick={() => removeItem(item.id)}
           aria-label="Remove item"
+          disabled={disabled}
         >
           Remove
         </button>

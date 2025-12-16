@@ -16,15 +16,13 @@ export default function CartDrawer() {
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
 
+  const syncing = useCartStore((s) => s.syncing);
+  const dirty = useCartStore((s) => s.dirty);
+  const error = useCartStore((s) => s.error);
+
   useLockBodyScroll(isOpen);
 
-  // Rehydrate cart when opened
-  useEffect(() => {
-    if (!isOpen) return;
-    void rehydrateCart();
-  }, [isOpen, rehydrateCart]);
-
-  // ESC to close
+    // ESC to close
   useEffect(() => {
     if (!isOpen) return;
 
@@ -33,16 +31,23 @@ export default function CartDrawer() {
     };
 
     document.addEventListener("keydown", onKeyDown);
-
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen, closeCart]);
+
+  // Only rehydrate if the cart is settled and not currently being synced/modified
+  useEffect(() => {
+    if (!isOpen || syncing || dirty ) return;
+
+    // If the cart is open and in a stable state, refresh from server
+    // This will catch changes made on other devices/tabs.
+    void rehydrateCart();
+  }, [isOpen, rehydrateCart]);
+
+
+  const canCheckout = items.length > 0 && !syncing && !dirty;
 
   return (
     <div className={`${styles.root} ${isOpen ? styles.open : ""}`} aria-hidden={!isOpen}>
-      {/* Backdrop */}
       <button
         type="button"
         className={styles.backdrop}
@@ -50,22 +55,39 @@ export default function CartDrawer() {
         aria-label="Close cart"
       />
 
-      {/* Drawer */}
       <aside className={styles.drawer} role="dialog" aria-modal="true" aria-label="Cart">
         <header className={styles.header}>
           <div className={styles.headerTop}>
             <h2 className={styles.title}>Your Cart</h2>
 
-            <button type="button" className={styles.closeBtn} onClick={closeCart} aria-label="Close">
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={closeCart}
+              aria-label="Close"
+            >
               ✕
             </button>
           </div>
 
           {items.length > 0 && (
-            <button type="button" className={styles.clearBtn} onClick={clearCart}>
+            <button
+              type="button"
+              className={styles.clearBtn}
+              onClick={clearCart}
+              disabled={syncing}
+              aria-disabled={syncing}
+            >
               Clear cart
             </button>
           )}
+
+          {/* Minimal feedback for dev/json-server */}
+          {error ? (
+            <p style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+              {error} {dirty ? "— Changes will sync when server is back." : null}
+            </p>
+          ) : null}
         </header>
 
         <div className={styles.body}>
@@ -87,7 +109,6 @@ export default function CartDrawer() {
           )}
         </div>
 
-        {/* Summary */}
         <footer className={styles.footer}>
           <div className={styles.summary}>
             <div className={styles.row}>
@@ -112,9 +133,18 @@ export default function CartDrawer() {
             <Link
               href="/checkout/shipping"
               className={`${styles.actionBtn} ${styles.primary}`}
-              onClick={closeCart}
+              aria-disabled={!canCheckout}
+              tabIndex={!canCheckout ? -1 : 0}
+              onClick={(e) => {
+                if (!canCheckout) {
+                  e.preventDefault();
+                  return;
+                }
+                closeCart();
+              }}
+              style={!canCheckout ? { opacity: 0.6, pointerEvents: "none" } : undefined}
             >
-              Continue to shipping
+              {syncing || dirty ? "Updating cart…" : "Continue to shipping"}
             </Link>
 
             <Link href="/products" className={styles.continue} onClick={closeCart}>

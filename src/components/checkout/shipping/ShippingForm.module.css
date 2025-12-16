@@ -67,6 +67,11 @@
   cursor: pointer;
 }
 
+.primaryBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .primaryBtn:hover {
   opacity: 0.95;
 }

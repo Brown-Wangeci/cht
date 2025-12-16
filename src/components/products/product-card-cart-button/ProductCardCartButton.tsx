@@ -14,9 +14,17 @@ export default function ProductCardCartButton({ product }: Props) {
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
 
+  const syncing = useCartStore((s) => s.syncing);
+  const pending = useCartStore((s) => !!s.pendingById[product.id]);
+  const dirty = useCartStore((s) => s.dirty);
+
+  const disabled = syncing || dirty || pending;
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    e.preventDefault(); // important if button sits inside a Link card
+    e.preventDefault();
+    if (disabled) return;
+
     if (inCart) removeItem(product.id);
     else addItem(product);
   };
@@ -27,6 +35,9 @@ export default function ProductCardCartButton({ product }: Props) {
       className={`${styles.cartButton} ${inCart ? styles.cartButtonActive : ""}`}
       onClick={handleClick}
       aria-label={inCart ? "Remove from cart" : "Add to cart"}
+      disabled={disabled}
+      aria-disabled={disabled}
+      style={disabled ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
     >
       {inCart ? <Check size={20} strokeWidth={2} /> : <ShoppingCart size={20} strokeWidth={2} />}
     </button>
