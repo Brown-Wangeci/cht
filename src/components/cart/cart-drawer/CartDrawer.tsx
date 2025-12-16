@@ -75,8 +75,8 @@ export default function CartDrawer() {
               type="button"
               className={styles.clearBtn}
               onClick={clearCart}
-              disabled={syncing}
-              aria-disabled={syncing}
+              disabled={syncing || dirty}
+              aria-disabled={syncing || dirty}
             >
               Clear cart
             </button>
