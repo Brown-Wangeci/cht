@@ -16,9 +16,12 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: fit-content;
+  width: 100%;
+  /* background-color: aqua; */
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-lg);
   z-index: 2;
   /* ensure above overlay */
@@ -26,9 +29,10 @@
 
 .title {
   font-family: var(--font-heading);
-  font-size: var(--text-5xl);
+  font-size: var(--text-4xl);
   font-weight: 700;
   line-height: 1.1;
+  text-transform: uppercase;
   color: var(--color-surface);
   letter-spacing: -0.04em;
   /* white-space: nowrap;  removed to avoid overflow */
@@ -38,14 +42,52 @@
   font-size: var(--text-lg);
   color: var(--color-surface-hover);
   line-height: var(--leading-relaxed);
-  max-width: 500px;
+  /* max-width: 500px; */
 }
 
 .actions {
   display: flex;
-  gap: var(--space-md);
+  align-items: center;
+  justify-content: center;
+  /* gap: var(--space-md); */
   margin-top: var(--space-sm);
 }
+
+.cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md) 0;
+    width: 160px;
+    /* Consistent height */
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
+    border-radius: var(--radius-md);
+    corner-shape: squircle;
+    letter-spacing: 0.02em;
+    /* Premium definition */
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    border: 2px solid transparent;
+    background-color: var(--color-background-alt);
+    color: var(--color-surface);
+  }
+  
+.ctaIcon {
+    width: 0;
+    transition: all var(--transition-base);
+    align-self: flex-end;
+}
+
+.cta:hover .ctaIcon {
+    width: auto;
+    margin-left: var(--space-xs);
+}
+
 
 /* Full-bleed hero image */
 .imageWrapper {

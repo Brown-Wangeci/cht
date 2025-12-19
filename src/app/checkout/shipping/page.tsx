@@ -1,5 +1,4 @@
-// app/checkout/shipping/page.tsx
-import styles from "./Shipping.module.css";
+import styles from "./ShippingPage.module.css";
 import Container from "@/components/common/container/Container";
 import ShippingForm from "@/components/checkout/shipping/ShippingForm";
 import OrderSummary from "@/components/checkout/order-summary/OrderSummary";

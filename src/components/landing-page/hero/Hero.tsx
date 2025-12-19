@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import styles from "./Hero.module.css";
-import Button from "@/components/ui/button/Button";
+import { ArrowRight } from "lucide-react"
 import { getCompany } from "@/lib/company";
 
 export default function Hero() {
@@ -25,26 +25,27 @@ export default function Hero() {
 
         <div className={styles.content}>
           <h1 className={styles.title}>
-            {company.brand.taglines[1]}
+            {company.company.tradeNames[1]}
             {/* Elevate Your Tea Experience */}
           </h1>
 
           <p className={styles.subtitle}>
-            {company.company.summary}
+            {company.brand.taglines[1]}
           </p>
 
           <div className={styles.actions}>
             <Link href="/products">
-              <Button variant="primary" className={styles.cta}>
-                Shop Collection
-              </Button>
+              <button className={styles.cta}>
+                <span>Shop Now</span>
+                <ArrowRight className={styles.ctaIcon} size={16} />
+              </button>
             </Link>
 
-            <Link href="/about">
+            {/* <Link href="/about">
               <Button variant="secondary" className={styles.cta}>
                 Our Story
               </Button>
-            </Link>
+            </Link> */}
           </div>
         </div>
       </div>
