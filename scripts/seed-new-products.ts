@@ -197,7 +197,6 @@ async function seedProducts() {
           images: p.images,
           tastingNotes: p.tastingNotes,
           ingredients: p.ingredients,
-          updatedAt: new Date(),
         },
       });
 
