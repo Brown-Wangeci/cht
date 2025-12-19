@@ -17,27 +17,22 @@
   justify-content: flex-end;
 }
 
-/* The clickable link */
+
+
 .link {
-  position: relative;
-  display: inline-block;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #522b5b; /* or var(--color-accent-dark) */
-  text-decoration: none;
-  padding-bottom: 2px;
+  text-align: center;
+  font-size: var(--text-m);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
-/* Underline */
-.link::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: currentColor;
+.small {
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
-
+.medium {
+  font-size: var(--text-m);
+  font-weight: 500;
+}

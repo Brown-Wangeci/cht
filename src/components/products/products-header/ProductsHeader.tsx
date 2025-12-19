@@ -12,6 +12,7 @@ export default function ProductsHeader() {
             // subtitle="Browse our curated selection of premium teas sourced directly from the finest plantations."
             align="left"
             paddingBlock="var(--space-xl)"
+            marginBottom={false}
         >
         <div className={styles.wrapper}>
             <FiltersBar />

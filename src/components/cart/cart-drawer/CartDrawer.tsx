@@ -6,6 +6,7 @@ import styles from "./CartDrawer.module.css";
 import { useCartStore } from "@/lib/stores/cart";
 import CartDrawerItem from "./CartDrawerItem";
 import useLockBodyScroll from "@/lib/hooks/useLockBodyScroll";
+import CustomLink from "@/components/ui/custom-link/CustomLink";
 
 export default function CartDrawer() {
   const isOpen = useCartStore((s) => s.isOpen);
@@ -22,50 +23,30 @@ export default function CartDrawer() {
 
   useLockBodyScroll(isOpen);
 
-    // ESC to close
   useEffect(() => {
     if (!isOpen) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeCart();
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, closeCart]);
-
-  // Only rehydrate if the cart is settled and not currently being synced/modified
-  useEffect(() => {
-    if (!isOpen || syncing || dirty ) return;
-
-    // If the cart is open and in a stable state, refresh from server
-    // This will catch changes made on other devices/tabs.
     void rehydrateCart();
   }, [isOpen, rehydrateCart]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && closeCart();
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, closeCart]);
 
   const canCheckout = items.length > 0 && !syncing && !dirty;
 
   return (
     <div className={`${styles.root} ${isOpen ? styles.open : ""}`} aria-hidden={!isOpen}>
-      <button
-        type="button"
-        className={styles.backdrop}
-        onClick={closeCart}
-        aria-label="Close cart"
-      />
+      <button type="button" className={styles.backdrop} onClick={closeCart} aria-label="Close cart" />
 
       <aside className={styles.drawer} role="dialog" aria-modal="true" aria-label="Cart">
         <header className={styles.header}>
           <div className={styles.headerTop}>
             <h2 className={styles.title}>Your Cart</h2>
 
-            <button
-              type="button"
-              className={styles.closeBtn}
-              onClick={closeCart}
-              aria-label="Close"
-            >
+            <button type="button" className={styles.closeBtn} onClick={closeCart} aria-label="Close">
               ✕
             </button>
           </div>
@@ -75,14 +56,13 @@ export default function CartDrawer() {
               type="button"
               className={styles.clearBtn}
               onClick={clearCart}
-              disabled={syncing || dirty}
-              aria-disabled={syncing || dirty}
+              disabled={syncing}
+              aria-disabled={syncing}
             >
               Clear cart
             </button>
           )}
 
-          {/* Minimal feedback for dev/json-server */}
           {error ? (
             <p style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
               {error} {dirty ? "— Changes will sync when server is back." : null}
@@ -96,14 +76,12 @@ export default function CartDrawer() {
               <p className={styles.emptyTitle}>Cart is empty</p>
               <p className={styles.emptyText}>Add a few teas and they’ll show up here.</p>
 
-              <Link href="/products" className={styles.emptyCta} onClick={closeCart}>
-                Browse products →
-              </Link>
+              <CustomLink href="/products" text="Browse products →" align="left" onClick={closeCart} size="medium" />
             </div>
           ) : (
             <div className={styles.items}>
               {items.map((item) => (
-                <CartDrawerItem key={item.id} item={item} />
+                <CartDrawerItem key={item.variantId} item={item} />
               ))}
             </div>
           )}
@@ -147,9 +125,7 @@ export default function CartDrawer() {
               {syncing || dirty ? "Updating cart…" : "Continue to shipping"}
             </Link>
 
-            <Link href="/products" className={styles.continue} onClick={closeCart}>
-              Continue shopping →
-            </Link>
+            <CustomLink href="/products" text="Continue shopping →" align="center" onClick={closeCart} size="small" />
           </div>
         </footer>
       </aside>

@@ -1,4 +1,3 @@
-import Container from "@/components/common/container/Container";
 import ProductCard from "@/components/products/product-card/ProductCard";
 import { getFeaturedProducts } from "@/lib/products";
 import styles from "./FeaturedProductsSection.module.css";
@@ -26,12 +25,12 @@ export default async function FeaturedProductsSection() {
 
         {/* Desktop version (aligned right) */}
         <div className={styles.desktopLink}>
-            <CustomLink href="/products" text="More products..." align="right" />
+            <CustomLink href="/products" text="More products →" align="right" />
         </div>
 
         {/* Mobile version (centered) */}
         <div className={styles.mobileLink}>
-            <CustomLink href="/products" text="More products..." align="center" />
+            <CustomLink href="/products" text="More products →" align="center" />
         </div>
     </Section>
   );

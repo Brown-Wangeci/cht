@@ -3,7 +3,8 @@
   align-items: center;
   justify-content: center;
   padding: 0.25rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
+  corner-shape: squircle;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;

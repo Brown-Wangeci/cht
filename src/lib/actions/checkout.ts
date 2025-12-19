@@ -2,15 +2,21 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getProductById } from "@/lib/products";
+import { db } from "@/db";
+import { carts, productVariants } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export type CheckoutCartItemInput = {
-  id: string;
+  variantId: string;
+  productId: string;
+
   name: string;
   slug: string;
   category: string;
   image: string;
-  price: number;
+
+  weightGrams: number;
+  price: number; // server-trusted (from product_variants.price)
   quantity: number;
 };
 
@@ -36,7 +42,6 @@ export type CheckoutShippingCookie = {
 const CHECKOUT_SHIPPING_COOKIE = "checkout_shipping";
 const CART_SESSION_COOKIE = "cart_session";
 
-const JSON_BASE = process.env.JSON_SERVER_URL!;
 const isProd = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
@@ -46,12 +51,7 @@ const cookieOptions = {
   path: "/" as const,
 };
 
-type JsonCartItem = {
-  id: string | number;
-  sessionId: string;
-  productId: string;
-  quantity: number;
-};
+type DbCartLine = { variantId: string; quantity: number };
 
 const clampInt = (n: unknown, min: number, max: number) => {
   const num = Number(n);
@@ -60,7 +60,7 @@ const clampInt = (n: unknown, min: number, max: number) => {
 };
 
 const clampMoney = (n: unknown) => {
-  const num = Number(n);
+  const num = typeof n === "string" ? Number(n) : typeof n === "number" ? n : 0;
   if (!Number.isFinite(num) || num < 0) return 0;
   return Math.round(num * 100) / 100;
 };
@@ -71,10 +71,7 @@ const calcTotals = (items: CheckoutCartItemInput[]): CheckoutTotals => {
     (t, i) => t + (Number(i.price) || 0) * (Number(i.quantity) || 0),
     0
   );
-  return {
-    count,
-    subtotal: Math.round(subtotal * 100) / 100,
-  };
+  return { count, subtotal: Math.round(subtotal * 100) / 100 };
 };
 
 const normalizePhone = (phone: string) => phone.replace(/[^\d+]/g, "");
@@ -87,9 +84,10 @@ const getOptional = (formData: FormData, key: string) =>
   String(formData.get(key) ?? "").trim();
 
 /**
- * Server-trusted cart snapshot:
- * Reads the JSON-server cart using the httpOnly `cart_session` cookie,
- * then resolves product details (incl. official price) from `products`.
+ * Server-trusted cart snapshot (Postgres):
+ * - reads the cart by sessionId from cookies()
+ * - resolves each variantId from product_variants + product relation
+ * - uses DB price (prevents tampering)
  */
 export async function getCheckoutCartSnapshot(): Promise<{
   items: CheckoutCartItemInput[];
@@ -102,44 +100,72 @@ export async function getCheckoutCartSnapshot(): Promise<{
     return { items: [], totals: { count: 0, subtotal: 0 } };
   }
 
-  const res = await fetch(
-    `${JSON_BASE}/cartItems?sessionId=${encodeURIComponent(sessionId)}`,
-    { cache: "no-store" }
-  );
+  const [cartRow] = await db
+    .select()
+    .from(carts)
+    .where(eq(carts.id, sessionId))
+    .limit(1);
 
-  if (!res.ok) {
+  const rawLines = Array.isArray(cartRow?.items) ? (cartRow!.items as unknown[]) : [];
+
+  // validate shape safely
+  const lines: DbCartLine[] = rawLines
+    .map((x) => {
+      const v = x as any;
+      const variantId = typeof v?.variantId === "string" ? v.variantId.trim() : "";
+      const quantity = clampInt(v?.quantity, 1, 99);
+      if (!variantId) return null;
+      return { variantId, quantity };
+    })
+    .filter(Boolean) as DbCartLine[];
+
+  if (!lines.length) {
     return { items: [], totals: { count: 0, subtotal: 0 } };
   }
 
-  const raw = (await res.json()) as JsonCartItem[];
+  const resolved = await Promise.all(
+    lines.map(async (line) => {
+      const variant = await db.query.productVariants.findFirst({
+        where: eq(productVariants.id, line.variantId),
+        with: { product: true },
+      });
 
-  const items = (
-    await Promise.all(
-      raw.map(async (row) => {
-        const productId = String(row.productId ?? "").trim();
-        if (!productId) return null;
+      if (!variant || !variant.product) return null;
 
-        const product = await getProductById(productId);
-        if (!product) return null;
+      // Optional: enforce stock bounds at checkout time
+      const stock = Number(variant.stockOnHand ?? 0);
+      if (stock <= 0) return null;
 
-        const qty = clampInt(row.quantity, 1, 99);
+      const qty = clampInt(line.quantity, 1, Math.min(99, stock));
 
-        const image = Array.isArray(product.images) ? product.images[0] ?? "" : "";
+      const image = Array.isArray(variant.product.images)
+        ? variant.product.images[0] ?? ""
+        : "";
 
-        return {
-          id: String(product.id),
-          name: String(product.name ?? "").trim(),
-          slug: String(product.slug ?? "").trim(),
-          category: String(product.category ?? "").trim(),
-          image: String(image ?? "").trim(),
-          price: clampMoney(product.price),
-          quantity: qty,
-        } satisfies CheckoutCartItemInput;
-      })
-    )
-  ).filter(Boolean) as CheckoutCartItemInput[];
+      return {
+        variantId: String(variant.id),
+        productId: String(variant.product.id),
+
+        name: String(variant.product.name ?? "").trim(),
+        slug: String(variant.product.slug ?? "").trim(),
+        category: String(variant.product.category ?? "").trim(),
+        image: String(image ?? "").trim(),
+
+        weightGrams: Number(variant.weightGrams) || 0,
+        price: clampMoney(variant.price),
+        quantity: qty,
+      } satisfies CheckoutCartItemInput;
+    })
+  );
+
+  const items = resolved.filter(Boolean) as CheckoutCartItemInput[];
+
+  if (!items.length) {
+    throw new Error("One or more items are no longer available");
+  }
 
   const totals = calcTotals(items);
+
   return { items, totals };
 }
 
@@ -157,7 +183,6 @@ export async function submitShipping(formData: FormData) {
 
   const phone = normalizePhone(phoneRaw);
 
-  // ✅ Read server-trusted cart (JSON-server session)
   const { items, totals } = await getCheckoutCartSnapshot();
 
   if (!items.length) redirect("/products");

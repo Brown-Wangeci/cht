@@ -16,7 +16,7 @@ type Props = {
 
 export default function QuantitySelector({
   value,
-  min = 1,
+  min = 0,
   max = 99,
   onIncrement,
   onDecrement,
@@ -26,6 +26,8 @@ export default function QuantitySelector({
   const canDecrement = value > min && !disableDecrement;
   const canIncrement = value < max && !disableIncrement;
 
+  const displayValue = Math.max(min, Math.min(value, max));
+
   return (
     <div className={styles.wrapper} aria-label="Quantity selector">
       <button
@@ -34,12 +36,13 @@ export default function QuantitySelector({
         className={styles.button}
         disabled={!canDecrement}
         aria-label="Decrease quantity"
+        aria-disabled={!canDecrement}
       >
         −
       </button>
 
       <span className={styles.value} aria-live="polite">
-        {value}
+        {displayValue}
       </span>
 
       <button
@@ -48,6 +51,7 @@ export default function QuantitySelector({
         className={styles.button}
         disabled={!canIncrement}
         aria-label="Increase quantity"
+        aria-disabled={!canIncrement}
       >
         +
       </button>

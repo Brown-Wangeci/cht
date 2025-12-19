@@ -21,6 +21,8 @@
 
 /* Image wrapper */
 .imageWrapper {
+  border-radius: var(--radius-sm);
+  corner-shape: squircle;
   position: relative;
   width: 100%;
   padding-top: 100%;
@@ -41,6 +43,13 @@
 .badgeWrapper {
   position: absolute;
   top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+}
+
+.runningLowBadgeWrapper {
+  position: absolute;
+  bottom: 0.75rem;
   left: 0.75rem;
   z-index: 2;
 }
@@ -88,6 +97,11 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.from {
+  font-size: 0.85rem;
+  margin-right: var(--space-xxs);
 }
 
 /* Discount */

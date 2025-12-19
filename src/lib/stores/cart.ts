@@ -1,49 +1,49 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product } from "@/lib/products";
 
-export interface CartItem extends Product {
+export type CartLine = { variantId: string; quantity: number };
+
+export type CartItem = {
+  // keys
+  variantId: string;
+  productId: string;
+
+  // display
+  slug: string;
+  name: string;
+  category: string;
+  image: string;
+  weightGrams: number;
+  price: number;
+
+  // state
   quantity: number;
-}
-
-/** Derived calculations */
-const calcCount = (items: CartItem[]) =>
-  items.reduce((total, item) => total + (item.quantity || 0), 0);
-
-const calcSubtotal = (items: CartItem[]) =>
-  items.reduce((total, item) => total + (item.price || 0) * (item.quantity || 0), 0);
-
-type ServerCartResponse = {
-  items: CartItem[];
+  stockOnHand?: number;
 };
 
 interface CartState {
-  // UI
+
   isOpen: boolean;
 
-  // Data
   items: CartItem[];
   count: number;
   subtotal: number;
 
-  // Lifecycle / status
   hydrated: boolean;
   syncing: boolean;
-  dirty: boolean; // local optimistic state not fully synced to server yet
+  dirty: boolean;
   error: string | null;
 
-  // Pending locks
-  pendingById: Record<string, boolean>;
+  pendingByVariantId: Record<string, boolean>;
 
-  // Internal sync state for SSR safety (NOT persisted)
-   __timerId: ReturnType<typeof setTimeout> | null;
-   __flushInFlight: boolean;
-   __flushQueued: boolean;
+  // Internal flags for batching
+  __timerId: ReturnType<typeof setTimeout> | null;
+  __flushInFlight: boolean;
+  __flushQueued: boolean;
 
-  // Actions
-  addItem: (product: Product) => void;
-  decreaseItemQuantity: (id: string) => void;
-  removeItem: (id: string) => void;
+  addItem: (variantProduct: Omit<CartItem, "quantity">) => void;
+  decreaseItemQuantity: (variantId: string) => void;
+  removeItem: (variantId: string) => void;
   clearCart: () => void;
 
   openCart: () => void;
@@ -51,138 +51,84 @@ interface CartState {
   toggleCart: () => void;
 
   rehydrateCart: () => Promise<void>;
+  __flushToServer: () => Promise<void>;
 }
 
-/** ---------- Internal helpers (client) ---------- **/
+/** ---------- Helpers ---------- **/
+const calcCount = (items: CartItem[]) =>
+  items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
-const safeJson = async <T,>(res: Response): Promise<T> => {
-  const contentType = res.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) return (await res.json()) as T;
+const calcSubtotal = (items: CartItem[]) =>
+  items.reduce((sum, i) => sum + (Number(i.price) || 0) * (i.quantity || 0), 0);
 
-  const text = await res.text();
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(text || `Request failed (${res.status})`);
-  }
+const toLines = (items: CartItem[]): CartLine[] =>
+  items.map((i) => ({ variantId: i.variantId, quantity: i.quantity }));
+
+const scheduleFlush = (
+  store: { getState: () => CartState; setState: (partial: Partial<CartState>) => void },
+  fn: () => Promise<void>,
+  delayMs = 200
+) => {
+  const { __timerId } = store.getState();
+  if (__timerId) clearTimeout(__timerId);
+
+  const tid = setTimeout(() => void fn(), delayMs);
+  store.setState({ __timerId: tid });
 };
 
-const ensureSession = async () => {
-  const res = await fetch("/api/cart/session", {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to initialize cart session");
-};
-
-const fetchCart = async (): Promise<CartItem[]> => {
+/** ---------- API ---------- **/
+const apiSyncCart = async ( lines: CartLine[]) => {
   const res = await fetch("/api/cart", {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: lines }),
   });
-  if (!res.ok) throw new Error("Failed to fetch cart");
-  const data = await safeJson<ServerCartResponse>(res);
+  if (!res.ok) throw new Error("Sync failed");
+  return res.json();
+};
+
+const fetchCartFromServer = async (): Promise<CartItem[]> => {
+  const res = await fetch("/api/cart", { cache: "no-store" });
+  if (!res.ok) return [];
+  const data = await res.json();
   return Array.isArray(data.items) ? data.items : [];
 };
 
-const apiAddItem = async (productId: string, quantity: number) => {
-  const res = await fetch("/api/cart/items", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ productId, quantity }),
-  });
-  if (!res.ok) throw new Error("Failed to add item");
-};
+/** ---------- Online retry listeners (attach once) ---------- **/
+let listenersAttached = false;
 
-const apiUpdateQty = async (productId: string, quantity: number) => {
-  const res = await fetch("/api/cart/items", {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ productId, quantity }),
-  });
-  if (!res.ok) throw new Error("Failed to update quantity");
-};
+const attachRetryListeners = () => {
+  if (typeof window === "undefined") return;
+  if (listenersAttached) return;
+  listenersAttached = true;
 
-const apiRemoveItem = async (productId: string) => {
-  const res = await fetch(`/api/cart/items?id=${encodeURIComponent(productId)}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to remove item");
-};
+  const flush = () => void useCartStore.getState().__flushToServer?.();
 
-const apiClear = async () => {
-  const res = await fetch("/api/cart/clear", {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to clear cart");
-};
+  const onOnline = () => {
+    if (useCartStore.getState().dirty) flush();
+  };
 
-/** Optimistic mutations */
-const optimisticAdd = (items: CartItem[], product: Product): CartItem[] => {
-  const existing = items.find((i) => i.id === product.id);
-  if (existing) {
-    return items.map((i) =>
-      i.id === product.id ? { ...i, quantity: (i.quantity || 0) + 1 } : i
-    );
-  }
-  return [...items, { ...product, quantity: 1 }];
-};
+  const onFocus = () => {
+    if (useCartStore.getState().dirty) flush();
+  };
 
-const optimisticDecrease = (items: CartItem[], id: string): CartItem[] => {
-  const existing = items.find((i) => i.id === id);
-  if (!existing) return items;
-  if ((existing.quantity || 0) > 1) {
-    return items.map((i) =>
-      i.id === id ? { ...i, quantity: (i.quantity || 0) - 1 } : i
-    );
-  }
-  return items.filter((i) => i.id !== id);
-};
+  const onVisibility = () => {
+    if (document.visibilityState === "visible" && useCartStore.getState().dirty) flush();
+  };
 
-const optimisticRemove = (items: CartItem[], id: string) =>
-  items.filter((i) => i.id !== id);
-
-/** ---------- Batching / Coalescing ---------- **/
-
-const makeQtyMap = (items: CartItem[]) => {
-  const map: Record<string, number> = {};
-  for (const i of items) map[i.id] = Number(i.quantity) || 0;
-  return map;
-};
-
-
-// Takes the store instance (get, set) to manage internal state
-const scheduleFlush = (
-  flushFn: () => Promise<void>,
-  store: { 
-    getState: () => CartState;
-    setState: (partial: Partial<CartState> | CartState) => void;
-  }
-) => {
-  const { __timerId } = store.getState();
-
-  if (__timerId) clearTimeout(__timerId);
-
-  const newTimerId = setTimeout(() => {
-    void flushFn();
-  }, 150);
-
-  // Save the new timer ID to the store instance
-  store.setState({ __timerId: newTimerId });
+  window.addEventListener("online", onOnline);
+  window.addEventListener("focus", onFocus);
+  document.addEventListener("visibilitychange", onVisibility);
 };
 
 /** ---------- Store ---------- **/
-
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
-      items: [],
+
       isOpen: false,
+
+      items: [],
       count: 0,
       subtotal: 0,
 
@@ -191,7 +137,7 @@ export const useCartStore = create<CartState>()(
       dirty: false,
       error: null,
 
-      pendingById: {},
+      pendingByVariantId: {},
 
       __timerId: null,
       __flushInFlight: false,
@@ -199,219 +145,170 @@ export const useCartStore = create<CartState>()(
 
       rehydrateCart: async () => {
         set({ syncing: true });
-        try {
-          await ensureSession();
-          const serverItems = await fetchCart();
 
-          set({
-            items: serverItems,
-            count: calcCount(serverItems),
-            subtotal: calcSubtotal(serverItems),
-            error: null,
-            dirty: false,
-            pendingById: {},
-          });
+        try {
+          // If we have local unsynced changes, prefer syncing first
+          // to avoid snapping UI back to stale server state.
+          if (get().dirty) {
+            await get().__flushToServer();
+            // If flush succeeds, dirty will become false and items remain correct.
+            // We can skip fetch, but doing a fetch is harmless (and can pick up server-side fixes).
+          }
+
+          const serverItems = await fetchCartFromServer();
+
+          // Only overwrite local if we are NOT dirty anymore
+          // (dirty implies local optimistic state should remain the UI source of truth).
+          if (!get().dirty) {
+            set({
+              items: serverItems,
+              count: calcCount(serverItems),
+              subtotal: calcSubtotal(serverItems),
+              error: null,
+              pendingByVariantId: {},
+            });
+          } else {
+            // still dirty → keep local items
+            set({ error: null });
+          }
         } catch (e: any) {
-          // IMPORTANT: if we are dirty (unsynced) and server is still down,
-          // keep the dirty state so UI remains locked.
-          set((state) => ({
-            error: e?.message ?? "Cart sync failed",
-            dirty: state.dirty || state.items.length > 0,
+          set((s) => ({
+            error: e?.message ?? "Failed to load cart from server",
+            // keep dirty if we were already dirty (keeps UI locked)
+            dirty: s.dirty || s.items.length > 0,
           }));
         } finally {
           set({ syncing: false });
         }
       },
 
-      /**
-       * Core: flush desired optimistic state to server safely.
-       * - Fetches server cart first (no shadow reliance)
-       * - Applies diffs
-       * - Reconciles from server
-       */
-      // ts-expect-error internal
       __flushToServer: async () => {
-
-        const state = get(); // SSR FIX: Read internal state from instance
-
-        // 1. Debounce check (uses instance state)
+        const state = get();
         if (state.__flushInFlight) {
           set({ __flushQueued: true });
           return;
         }
 
-        // Set internal state: flushInFlight = true, syncing = true
         set({ __flushInFlight: true, syncing: true });
 
         try {
-          await ensureSession();
+          const snapshot = get().items; // reference snapshot
+          const snapshotLines = toLines(snapshot);
 
-          // 2. SNAPSHOT: Capture the specific local state we are trying to sync
-          const desiredItems = get().items;
-          const desiredQty = makeQtyMap(desiredItems);
+          await apiSyncCart(snapshotLines);
 
-          // 3. Fetch server state (Source of Truth)
-          const serverBefore = await fetchCart();
-          const serverQty = makeQtyMap(serverBefore);
-
-          const desiredIds = new Set(Object.keys(desiredQty));
-          const serverIds = new Set(Object.keys(serverQty));
-
-          // 4. Diffing Logic
-          // Special case: Local is empty, Server has items -> Clear everything
-          if (desiredItems.length === 0 && serverBefore.length > 0) {
-            await apiClear();
-          } else {
-            // A) Handle Removals
-            for (const id of serverIds) {
-              if (!desiredIds.has(id)) {
-                await apiRemoveItem(id);
-              }
-            }
-
-            // B) Handle Updates (Unified Logic)
-            for (const id of desiredIds) {
-              const want = desiredQty[id] ?? 0;
-              const had = serverQty[id] ?? 0;
-
-              // Skip invalid quantities
-              if (want <= 0) {
-                if (had > 0) await apiRemoveItem(id);
-                continue;
-              }
-
-              // Case 1: New Item -> POST (Add)
-              if (had === 0) {
-                await apiAddItem(id, want);
-                continue;
-              }
-
-              // Case 2: Existing Item -> PATCH (Update Absolute)
-              // We use PATCH for both increase and decrease. 
-              // This is "Idempotent" - safer than adding deltas.
-              if (want !== had) {
-                await apiUpdateQty(id, want);
-              }
-            }
-          }
-
-          // 5. Fetch Final Server State
-          const serverFinal = await fetchCart();
-
-          // 6. CRITICAL: Race Condition Check
-          // We check if the current state reference is strictly equal to our snapshot.
-          // If the user clicked a button while we were awaiting APIs, 'get().items' 
-          // will be a NEW reference.
-          const currentItems = get().items;
-          
-          if (currentItems === desiredItems) {
-            // Safe to overwrite: User hasn't touched the UI since we started.
+          // Race safety: only clear dirty if cart didn't change during the request
+          if (get().items === snapshot) {
             set({
-              items: serverFinal,
-              count: calcCount(serverFinal),
-              subtotal: calcSubtotal(serverFinal),
-              error: null,
               dirty: false,
-              pendingById: {}, // Release all locks
+              error: null,
+              pendingByVariantId: {},
             });
           } else {
-            // Unsafe: User changed the cart while we were syncing.
-            // Do NOT overwrite local items. 
-            // Mark as dirty so the next flush cycle picks up the new changes.
-            console.log("Stale sync detected - rescheduling");
+            // user changed cart while request was in flight
             set({ dirty: true });
-            
-            // We do NOT clear pendingById here, because the items are still technically pending
-            // the next sync cycle.
           }
-
         } catch (e: any) {
-          // On error, keep dirty state true
-          set((state) => ({
-            error: e?.message ?? "Sync failed",
+          // keep optimistic UI but remain locked (dirty) so checkout/buttons stay disabled
+          set((s) => ({
+            error: e?.message ?? "Sync delayed... checking connection",
             dirty: true,
-            syncing: false,
-            pendingById: state.pendingById, // Keep locks
+            pendingByVariantId: s.pendingByVariantId,
           }));
         } finally {
+          set({ __flushInFlight: false, syncing: false });
 
-          // Final state reads
-          const finalState = get();
-
-          set({ syncing: false, __flushInFlight: false });
-
-          // Check if we need to run again immediately
-          // (Either due to queueing OR because we detected a race condition above)
-          if (finalState.__flushQueued || finalState.dirty) {
+          const final = get();
+          if (final.__flushQueued || final.dirty) {
             set({ __flushQueued: false });
-            scheduleFlush((get() as any).__flushToServer, { getState: get, setState: set });
+            scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
           }
         }
       },
 
-      addItem: (product) => {
+      addItem: (variantProduct) => {
         const prev = get().items;
-        const next = optimisticAdd(prev, product);
+        const existing = prev.find((i) => i.variantId === variantProduct.variantId);
 
-        set((state) => ({
+        const max = variantProduct.stockOnHand ?? 99;
+
+        const next = existing
+          ? prev.map((i) =>
+              i.variantId === variantProduct.variantId
+                ? { ...i, quantity: Math.min((i.quantity || 0) + 1, max) }
+                : i
+            )
+          : [
+              ...prev,
+              {
+                ...variantProduct,
+                quantity: 1,
+              },
+            ];
+
+        set((s) => ({
           items: next,
           count: calcCount(next),
           subtotal: calcSubtotal(next),
-          error: null,
           dirty: true,
-          pendingById: { ...state.pendingById, [product.id]: true },
+          error: null,
+          pendingByVariantId: { ...s.pendingByVariantId, [variantProduct.variantId]: true },
         }));
 
-        scheduleFlush((get() as any).__flushToServer, { getState: get, setState: set });
+        scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
       },
 
-      decreaseItemQuantity: (id) => {
+      decreaseItemQuantity: (variantId) => {
         const prev = get().items;
-        const next = optimisticDecrease(prev, id);
+        const existing = prev.find((i) => i.variantId === variantId);
+        if (!existing) return;
 
-        set((state) => ({
+        const next =
+          existing.quantity > 1
+            ? prev.map((i) => (i.variantId === variantId ? { ...i, quantity: i.quantity - 1 } : i))
+            : prev.filter((i) => i.variantId !== variantId);
+
+        set((s) => ({
           items: next,
           count: calcCount(next),
           subtotal: calcSubtotal(next),
-          error: null,
           dirty: true,
-          pendingById: { ...state.pendingById, [id]: true },
+          error: null,
+          pendingByVariantId: { ...s.pendingByVariantId, [variantId]: true },
         }));
 
-        scheduleFlush((get() as any).__flushToServer, { getState: get, setState: set });
+        scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
       },
 
-      removeItem: (id) => {
-        const prev = get().items;
-        const next = optimisticRemove(prev, id);
+      removeItem: (variantId) => {
+        const next = get().items.filter((i) => i.variantId !== variantId);
 
-        set((state) => ({
+        set((s) => ({
           items: next,
           count: calcCount(next),
           subtotal: calcSubtotal(next),
-          error: null,
           dirty: true,
-          pendingById: { ...state.pendingById, [id]: true },
+          error: null,
+          pendingByVariantId: { ...s.pendingByVariantId, [variantId]: true },
         }));
 
-        scheduleFlush((get() as any).__flushToServer, { getState: get, setState: set });
+        scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
       },
 
       clearCart: () => {
-        const ids = get().items.map((i) => i.id);
         const pending: Record<string, boolean> = {};
-        for (const id of ids) pending[id] = true;
+        for (const i of get().items) pending[i.variantId] = true;
 
         set({
           items: [],
           count: 0,
           subtotal: 0,
-          error: null,
           dirty: true,
-          pendingById: pending,
+          error: null,
+          pendingByVariantId: pending,
         });
 
-        scheduleFlush((get() as any).__flushToServer, { getState: get, setState: set });
+        scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
       },
 
       openCart: () => set({ isOpen: true }),
@@ -419,12 +316,11 @@ export const useCartStore = create<CartState>()(
       toggleCart: () => set({ isOpen: !get().isOpen }),
     }),
     {
-      name: "cart-storage",
-      partialize: (state) => ({
-        items: state.items,
-        dirty: state.dirty,
-        pendingById: state.pendingById,
-        error: state.error,
+      name: "tea-cart-storage",
+      partialize: (s) => ({
+        items: s.items,
+        dirty: s.dirty,
+        error: s.error,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -433,19 +329,11 @@ export const useCartStore = create<CartState>()(
         state.count = calcCount(state.items);
         state.subtotal = calcSubtotal(state.items);
 
-        // ✅ Always try reconcile
-        void state.rehydrateCart();
+        attachRetryListeners();
 
-        // ✅ If unsynced, re-flush as soon as we're online (no refresh required)
-        if (typeof window !== "undefined") {
-          // Use the bound store action
-          const flush = () => void (state as any).__flushToServer?.();
-
-          // If we were dirty during refresh, keep trying when connection returns
-          if (state.dirty) flush();
-
-          window.addEventListener("online", flush);
-        }
+        // If dirty, attempt flush immediately (no refresh required once server returns)
+        if (state.dirty) void useCartStore.getState().__flushToServer();
+        else void state.rehydrateCart();
       },
     }
   )

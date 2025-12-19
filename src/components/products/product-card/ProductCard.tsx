@@ -1,40 +1,29 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Product } from "@/lib/products";
-import Badge from "../badge/Badge";
+import type { ProductWithVariants } from "@/lib/products";
+import Badge, { BadgeVariant } from "../badge/Badge";
 import ProductCardCartButton from "../product-card-cart-button/ProductCardCartButton";
 import styles from "./ProductCard.module.css";
+import RunningLowBadge from "../running-low-badge/RunningLowBadge";
 
 type ProductCardProps = {
-  product: Product;
+  product: ProductWithVariants;
 };
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const {
-    id,
-    name,
-    images = [],
-    price,
-    originalPrice,
-    isBestSeller,
-    isNew,
-    soldOut,
-    slug,
-  } = product;
+  const { name, images = [], isBestSeller, isNew, slug, variants } = product;
 
-  // Safe accessor for main image
   const mainImage = images[0] || "/placeholder.png";
 
-  const hasDiscount = originalPrice && originalPrice > price && !soldOut;
+  const minPrice =
+    variants?.length ? Math.min(...variants.map((v) => v.price)) : 0;
 
-  const discountPercent = hasDiscount
-    ? Math.round(((originalPrice - price) / originalPrice) * 100)
-    : null;
+  const anyInStock = variants?.some((v) => (v.stockOnHand ?? 0) > 0) ?? false;
 
-  let badgeLabel: string | null = null;
-  let badgeVariant: any = "default";
+  let badgeLabel: string = "SHOP";
+  let badgeVariant: BadgeVariant = "shop";
 
-  if (soldOut) {
+  if (!anyInStock) {
     badgeLabel = "SOLD OUT";
     badgeVariant = "soldOut";
   } else if (isBestSeller) {
@@ -45,15 +34,28 @@ export default function ProductCard({ product }: ProductCardProps) {
     badgeVariant = "new";
   }
 
-  return (
-    <article className={`${styles.card} ${soldOut ? styles.soldOut : ""}`}>
-      {/* CLICKABLE AREA */}
+  const runningLow = variants?.some(
+    (v) => (v.stockOnHand ?? 0) > 0 && (v.stockOnHand ?? 0) <= 5
+  );
 
+  // const priceLabel =
+  //   variants?.length && variants.length > 1
+  //     ? `From`
+  //     : ``;
+  const from = variants?.length && variants.length > 1; 
+
+  return (
+    <article className={`${styles.card} ${!anyInStock ? styles.soldOut : ""}`}>
       <Link href={`/products/${slug}`} className={styles.clickArea}>
         <div className={styles.imageWrapper}>
           {badgeLabel && (
             <div className={styles.badgeWrapper}>
               <Badge label={badgeLabel} variant={badgeVariant} />
+            </div>
+          )}
+          {runningLow && (
+            <div className={styles.runningLowBadgeWrapper}>
+              <RunningLowBadge />
             </div>
           )}
 
@@ -70,25 +72,12 @@ export default function ProductCard({ product }: ProductCardProps) {
           <h3 className={styles.name}>{name}</h3>
 
           <div className={styles.priceRow}>
-            {hasDiscount && originalPrice && (
-              <span className={styles.originalPrice}>
-                KSH {originalPrice.toFixed(2)}
-              </span>
-            )}
-
-            <span className={styles.currentPrice}>
-              KSH {price.toFixed(2)}
-            </span>
-
-            {hasDiscount && discountPercent !== null && (
-              <span className={styles.discount}>{discountPercent}% off</span>
-            )}
+            <span className={styles.currentPrice}> {from && <span className={styles.from} >From</span>}KSH {minPrice.toFixed(2)}</span>
           </div>
         </div>
       </Link>
 
-      {/* CART BUTTON OUTSIDE LINK */}
-      {!soldOut && <ProductCardCartButton product={product} />}
+      {anyInStock && <ProductCardCartButton product={product} />}
     </article>
   );
 }

@@ -3,7 +3,8 @@
   display: inline-flex;
   width: fit-content;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
+  corner-shape: squircle;
   border: 1px solid var(--color-border);
   overflow: hidden;
 }

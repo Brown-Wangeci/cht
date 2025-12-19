@@ -64,6 +64,7 @@
   border: 1px solid var(--color-border);
   background: transparent;
   border-radius: var(--radius-md);
+  corner-shape: squircle;
   width: 34px;
   height: 34px;
   display: grid;
@@ -190,6 +191,7 @@
   width: 100%;
   height: 44px;
   border-radius: var(--radius-md);
+  corner-shape: squircle;
   text-decoration: none;
   font-weight: var(--font-semibold);
   border: 1px solid var(--color-border);
@@ -201,12 +203,6 @@
   border-color: var(--color-accent);
 }
 
-.continue {
-  text-align: center;
-  color: var(--color-accent);
-  text-decoration: underline;
-  font-size: var(--text-sm);
-}
 
 @media (max-width: 480px) {
   .drawer {

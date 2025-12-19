@@ -9,6 +9,7 @@
     font-size: var(--text-base);
     font-weight: var(--font-medium);
     border-radius: var(--radius-md);
+    corner-shape: squircle;
     letter-spacing: 0.02em;
     /* Premium definition */
     white-space: nowrap;

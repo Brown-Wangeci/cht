@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { Product } from "@/lib/products";
+import { ProductWithVariants } from "@/lib/products";
 import styles from "./ProductGallery.module.css";
 
 type Props = {
-  product: Product;
+  product: ProductWithVariants;
 };
 
 export default function ProductGallery({ product }: Props) {

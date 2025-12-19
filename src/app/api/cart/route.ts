@@ -1,51 +1,154 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getProductById } from "@/lib/products";
-import type { CartItem } from "@/lib/stores/cart";
+import { cookies } from "next/headers";
+import { randomUUID } from "crypto";
 
-const JSON_BASE = process.env.JSON_SERVER_URL!;
-const COOKIE_NAME = "cart_session";
+import { db } from "@/db";
+import { carts, productVariants } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-type JsonCartItem = {
-  id: string | number;
-  sessionId: string;
-  productId: string;
-  quantity: number;
+type CartLine = { variantId: string; quantity: number };
+
+const CART_SESSION_COOKIE = "cart_session";
+
+const clampInt = (n: unknown, min: number, max: number) => {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(num)));
 };
 
-export async function GET() {
+const money = (v: unknown) => {
+  const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : 0;
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+};
+
+const normalizeLines = (items: unknown): CartLine[] => {
+  if (!Array.isArray(items)) return [];
+  const out: CartLine[] = [];
+  for (const it of items) {
+    if (!it || typeof it !== "object") continue;
+    const variantId = String((it as any).variantId ?? "").trim();
+    const quantity = clampInt((it as any).quantity, 1, 99);
+    if (!variantId) continue;
+    out.push({ variantId, quantity });
+  }
+  return out;
+};
+
+// ✅ Read cookie; if missing, create and set it
+const getOrCreateSessionId = async () => {
   const store = await cookies();
-  const sessionId = store.get(COOKIE_NAME)?.value;
+  let sessionId = store.get(CART_SESSION_COOKIE)?.value?.trim();
 
+  let created = false;
   if (!sessionId) {
-    return NextResponse.json({ items: [] });
+    sessionId = randomUUID();
+    created = true;
   }
 
-  const res = await fetch(
-    `${JSON_BASE}/cartItems?sessionId=${encodeURIComponent(sessionId)}`,
-    { cache: "no-store" }
-  );
+  return { sessionId, created };
+};
 
-  if (!res.ok) {
-    return NextResponse.json({ items: [] });
+const cookieOptions = {
+  httpOnly: true as const,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 30, // 30 days
+};
+
+/**
+ * POST: snapshot sync (guest)
+ * body: { items: [{variantId, quantity}] }
+ */
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const lines = normalizeLines(body?.items);
+
+    const { sessionId, created } = await getOrCreateSessionId();
+
+    await db
+      .insert(carts)
+      .values({ id: sessionId, items: lines, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: carts.id,
+        set: { items: lines, updatedAt: new Date() },
+      });
+
+    const res = NextResponse.json({ success: true });
+
+    if (created) {
+      res.cookies.set(CART_SESSION_COOKIE, sessionId, cookieOptions);
+    }
+
+    return res;
+  } catch (error) {
+    console.error("Cart POST Sync Error:", error);
+    return NextResponse.json({ error: "Failed to sync cart" }, { status: 500 });
   }
+}
 
-  const raw = (await res.json()) as JsonCartItem[];
+/**
+ * GET: resolves cart lines into UI-ready items
+ * returns: { items: [...] }
+ */
+export async function GET() {
+  try {
+    const { sessionId, created } = await getOrCreateSessionId();
 
-  // 🔹 Parallel product resolution (important improvement)
-  const items = (
-    await Promise.all(
-      raw.map(async (row) => {
-        const product = await getProductById(row.productId);
-        if (!product) return null;
+    const [existingCart] = await db
+      .select()
+      .from(carts)
+      .where(eq(carts.id, sessionId))
+      .limit(1);
+
+    const lines = normalizeLines(existingCart?.items ?? []);
+    if (!lines.length) {
+      const res = NextResponse.json({ items: [] });
+      if (created) res.cookies.set(CART_SESSION_COOKIE, sessionId, cookieOptions);
+      return res;
+    }
+
+    const resolved = await Promise.all(
+      lines.map(async (line) => {
+        const variant = await db.query.productVariants.findFirst({
+          where: eq(productVariants.id, line.variantId),
+          with: { product: true },
+        });
+
+        if (!variant || !variant.product) return null;
+
+        const image =
+          Array.isArray(variant.product.images) && variant.product.images.length
+            ? variant.product.images[0]!
+            : "";
 
         return {
-          ...product,
-          quantity: Math.max(1, Math.min(99, Number(row.quantity) || 1)),
-        } satisfies CartItem;
+          variantId: variant.id,
+          productId: variant.product.id,
+          slug: variant.product.slug,
+          name: variant.product.name,
+          category: variant.product.category,
+          image,
+          weightGrams: variant.weightGrams,
+          price: money(variant.price),
+          quantity: clampInt(line.quantity, 1, 99),
+          stockOnHand: variant.stockOnHand ?? 0,
+        };
       })
-    )
-  ).filter(Boolean) as CartItem[];
+    );
 
-  return NextResponse.json({ items });
+    const items = resolved.filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    const res = NextResponse.json({ items });
+
+    if (created) {
+      res.cookies.set(CART_SESSION_COOKIE, sessionId, cookieOptions);
+    }
+
+    return res;
+  } catch (error) {
+    console.error("Cart GET Fetch Error:", error);
+    return NextResponse.json({ error: "Failed to fetch cart" }, { status: 500 });
+  }
 }

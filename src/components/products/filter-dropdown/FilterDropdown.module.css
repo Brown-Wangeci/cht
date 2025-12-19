@@ -8,8 +8,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 999px;
-  /* border: 1px solid var(--color-border); */
+  border-radius: var(--radius-full);
+  corner-shape: squircle;
   border: none;
   background-color: var(--color-background);
   font-size: var(--text-sm);
@@ -37,6 +37,7 @@
   min-width: 200px;
   background-color: var(--color-surface);
   border-radius: var(--radius-lg);
+  corner-shape: squircle;
   border: 1px solid var(--color-border);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
   z-index: 20;
