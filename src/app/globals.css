@@ -140,7 +140,7 @@
 
   --container-width: 1200px;
   --container-padding: 1.5rem;
-  --header-height: 64px;
+  --header-height: 56px;
 
   /* Border Radius */
   --radius-sm: 4px;
@@ -156,9 +156,9 @@
   --transition-slow: 300ms ease;
 
   /* Glassmorphism Tokens */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.5);
-  --backdrop-blur: blur(12px);
+  --glass-bg: rgba(255, 255, 255, 0.2);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+  --backdrop-blur: blur(12px) saturate(100%);
 
 }
 
