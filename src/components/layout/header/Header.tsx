@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import styles from "./Header.module.css";
@@ -8,6 +8,7 @@ import Container from "@/components/common/container/Container";
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/lib/stores/cart";
 import useLockBodyScroll from "@/lib/hooks/useLockBodyScroll";
+import { getCompany } from "@/lib/company";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +22,10 @@ export default function Header() {
   // (cart drawer handles its own lock)
   useLockBodyScroll(mobileMenuOpen && !isCartOpen);
 
+  const company = getCompany();
+  const brandName = company.brand.primaryBrand;
+  const legalName = company.company.legalName;
+
   const navLinks = [
     { href: "/", label: "Home" },
     // { href: "/about", label: "Our Story" },
@@ -32,7 +37,6 @@ export default function Header() {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
-
 
   const openCartFromHeader = useCallback(() => {
     toggleCart();
@@ -46,14 +50,14 @@ export default function Header() {
   return (
     <div className={styles.headerWrapper}>
       <div className={styles.smallBanner}>
-        <p className={styles.annoucement}>Free shipping on orders over Ksh. 6000!</p>
+        <p className={styles.annoucement}>{legalName}</p>
       </div>
 
       <header className={styles.header}>
         <Container>
           <nav className={styles.nav}>
-            <Link href="/" className={styles.logo}>
-              Logo
+            <Link href="/" className={styles.logo} aria-label={brandName}>
+              {brandName}
             </Link>
 
             {/* Desktop Navigation */}
@@ -87,6 +91,7 @@ export default function Header() {
               className={styles.mobileToggle}
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open menu"
+              type="button"
             >
               ☰
             </button>
@@ -97,14 +102,20 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className={styles.mobileMenuOverlay}>
             <div className={styles.mobileMenuHeader}>
-              <Link href="/" className={styles.logo} onClick={() => setMobileMenuOpen(false)}>
-                Logo
+              <Link
+                href="/"
+                className={styles.logo}
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label={brandName}
+              >
+                {brandName}
               </Link>
 
               <button
                 className={styles.closeButton}
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Close menu"
+                type="button"
               >
                 ✕
               </button>

@@ -2,15 +2,18 @@ import Link from "next/link";
 import Image from "next/image";
 import styles from "./Hero.module.css";
 import Button from "@/components/ui/button/Button";
+import { getCompany } from "@/lib/company";
 
 export default function Hero() {
+  const company = getCompany();
+
   return (
     <section className={styles.hero}>
       <div className={styles.container}>
         <div className={styles.imageWrapper}>
           <Image
             src="/images/hero-home.png"
-            alt="Tea Plantation"
+            alt={`${company.brand.primaryBrand} Tea Plantation`}
             fill
             className={styles.image}
             priority
@@ -22,18 +25,21 @@ export default function Hero() {
 
         <div className={styles.content}>
           <h1 className={styles.title}>
-            Elevate Your Tea Experience
+            {company.brand.taglines[1]}
+            {/* Elevate Your Tea Experience */}
           </h1>
+
           <p className={styles.subtitle}>
-            Discover our curated collection of premium teas, sourced from the
-            world&apos;s finest gardens. Crafted for moments of tranquility.
+            {company.company.summary}
           </p>
+
           <div className={styles.actions}>
             <Link href="/products">
               <Button variant="primary" className={styles.cta}>
                 Shop Collection
               </Button>
             </Link>
+
             <Link href="/about">
               <Button variant="secondary" className={styles.cta}>
                 Our Story

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2025-12-19",
+  "company": {
+    "legalName": "Central Highlands Tea Company Limited",
+    "tradeNames": [
+      "Central Highlands Tea Limited"
+    ],
+    "brands": [
+      "Kiriti Tea",
+      "KIRITI"
+    ],
+    "website": "https://centralhighlandstea.co.ke/",
+    "summary": "Tea company positioned around Kiriti Tea Factory in Kenya’s Central Highlands (Aberdare ranges).",
+    "ownershipModel": "Owned by smallholder tea growers",
+    "about": {
+      "positioning": "Nestled in the lush Central Highlands east of the Rift Valley along the Aberdare Ranges; elevation over 2200 meters (7200 feet).",
+      "nameMeaning": "“Kiriti” meaning virgin forest."
+    }
+  },
+  "contacts": {
+    "primary": {
+      "email": "centralhighlands@gmail.com",
+      "phone": "+254707602582"
+    },
+    "support": {
+      "email": null,
+      "phone": null
+    }
+  },
+  "location": {
+      "label": "Nairobi Office",
+      "addressLine1": "1st Floor, Suite 103, Garden Chambers",
+      "addressLine2": "Mokhtar Dadar Street",
+      "city": "Nairobi",
+      "postalCode": "00400",
+      "poBox": "P.O Box 22838 – 0400 Nairobi",
+      "country": "Kenya",
+      "sourceNote": "Listed on the Kiriti Tea website contact section."
+    },
+  "brand": {
+    "primaryBrand": "Kiriti Tea",
+    "taglines": [
+        "Kenya’s Finest Tea",
+        "Elevate Your Tea Experience"
+    ],
+    "story": {
+      "region": "Central Highlands of Kenya, Aberdare ranges",
+      "elevationMeters": 2200,
+      "elevationFeet": 7200
+    }
+  },
+  "social": {
+    "facebook": null,
+    "instagram": null,
+    "linkedin": null,
+    "x": null,
+    "youtube": null
+  }
+}
