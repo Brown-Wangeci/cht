@@ -35,11 +35,13 @@
   text-transform: uppercase;
   color: var(--color-surface);
   letter-spacing: -0.04em;
+  text-align: center;
   /* white-space: nowrap;  removed to avoid overflow */
 }
 
 .subtitle {
   font-size: var(--text-lg);
+  text-align: center;
   color: var(--color-surface-hover);
   line-height: var(--leading-relaxed);
   /* max-width: 500px; */
