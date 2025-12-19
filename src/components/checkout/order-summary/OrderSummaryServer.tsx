@@ -55,7 +55,7 @@ export default async function OrderSummaryServer() {
 
       <div className={styles.items}>
         {items.map((item) => (
-          <div key={item.id} className={styles.item}>
+          <div key={item.variantId} className={styles.item}>
             <div className={styles.thumb}>
               {item.image ? (
                 <Image
