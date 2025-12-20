@@ -11,15 +11,17 @@ export default function Hero() {
     <section className={styles.hero}>
       <div className={styles.container}>
         <div className={styles.imageWrapper}>
-          <Image
-            src="/images/hero-home-1.png"
-            alt={`${company.brand.primaryBrand} Tea Plantation`}
-            fill
-            className={styles.image}
-            priority
-            quality={90}
-            sizes="(max-width: 900px) 100vw, 100vw"
-          />
+          <div className={styles.drift}>
+            <Image
+              src="/images/hero-home-1.png"
+              alt={`${company.brand.primaryBrand} Tea Plantation`}
+              fill
+              className={styles.image}
+              priority
+              quality={90}
+              sizes="(max-width: 900px) 100vw, 100vw"
+            />
+          </div>
           {/* <div className={styles.overlay}></div> */}
         </div>
 
