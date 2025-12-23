@@ -7,8 +7,12 @@ import { useCartStore } from "@/lib/stores/cart";
 import CartDrawerItem from "./CartDrawerItem";
 import useLockBodyScroll from "@/lib/hooks/useLockBodyScroll";
 import CustomLink from "@/components/ui/custom-link/CustomLink";
+import { usePathname } from "next/navigation";
 
 export default function CartDrawer() {
+  const pathname = usePathname();
+  const inCheckout = pathname?.startsWith("/checkout");
+
   const isOpen = useCartStore((s) => s.isOpen);
   const closeCart = useCartStore((s) => s.closeCart);
   const clearCart = useCartStore((s) => s.clearCart);
@@ -22,6 +26,12 @@ export default function CartDrawer() {
   const error = useCartStore((s) => s.error);
 
   useLockBodyScroll(isOpen);
+
+  useEffect(() => {
+    if (inCheckout && isOpen) closeCart();
+  }, [inCheckout, isOpen, closeCart]);
+
+  if (inCheckout) return null;
 
   useEffect(() => {
     if (!isOpen) return;

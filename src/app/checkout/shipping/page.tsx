@@ -10,7 +10,7 @@ export default async function ShippingPage() {
         <header className={styles.header}>
           <h1 className={styles.title}>Shipping</h1>
           <p className={styles.subtitle}>
-            Provide your delivery details. Your order summary updates automatically.
+            Provide your delivery details. Review your order below — to edit items, go back to Shop.
           </p>
         </header>
 

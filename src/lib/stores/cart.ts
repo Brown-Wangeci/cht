@@ -77,13 +77,37 @@ const scheduleFlush = (
 };
 
 /** ---------- API ---------- **/
-const apiSyncCart = async ( lines: CartLine[]) => {
+class CartLockedError extends Error {
+  code = "CART_LOCKED" as const;
+  constructor(message = "Cart is locked for checkout") {
+    super(message);
+    this.name = "CartLockedError";
+  }
+}
+
+const apiSyncCart = async (lines: CartLine[]) => {
   const res = await fetch("/api/cart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items: lines }),
   });
-  if (!res.ok) throw new Error("Sync failed");
+
+  if (!res.ok) {
+    // Try to read structured error from API
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      // ignore
+    }
+
+    if (res.status === 409 && data?.code === "CART_LOCKED") {
+      throw new CartLockedError(data?.message);
+    }
+
+    throw new Error(data?.error ?? "Sync failed");
+  }
+
   return res.json();
 };
 
@@ -172,9 +196,19 @@ export const useCartStore = create<CartState>()(
             set({ error: null });
           }
         } catch (e: any) {
+          // Cart is locked → make it read-only and stop retries
+          if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
+            set({
+              error: e?.message ?? "Cart is locked for checkout",
+              dirty: false,
+              pendingByVariantId: {},
+            });
+            return;
+          }
+
+          // Other errors (network, server, etc.)
           set((s) => ({
             error: e?.message ?? "Failed to load cart from server",
-            // keep dirty if we were already dirty (keeps UI locked)
             dirty: s.dirty || s.items.length > 0,
           }));
         } finally {
@@ -183,6 +217,7 @@ export const useCartStore = create<CartState>()(
       },
 
       __flushToServer: async () => {
+        let skipReschedule = false;
         const state = get();
         if (state.__flushInFlight) {
           set({ __flushQueued: true });
@@ -209,6 +244,18 @@ export const useCartStore = create<CartState>()(
             set({ dirty: true });
           }
         } catch (e: any) {
+          // Cart is locked: stop retry loop and stop treating it as dirty
+          if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
+            set({
+              error: e?.message ?? "Cart is locked for checkout",
+              dirty: false,                 // IMPORTANT: stops retry-on-focus/online
+              pendingByVariantId: {},        // clear pending
+              __flushQueued: false,          // stop queueing
+            });
+            skipReschedule = true;
+            return; // IMPORTANT: prevents rescheduling
+          }
+
           // keep optimistic UI but remain locked (dirty) so checkout/buttons stay disabled
           set((s) => ({
             error: e?.message ?? "Sync delayed... checking connection",
@@ -217,6 +264,8 @@ export const useCartStore = create<CartState>()(
           }));
         } finally {
           set({ __flushInFlight: false, syncing: false });
+
+          if (skipReschedule) return;
 
           const final = get();
           if (final.__flushQueued || final.dirty) {

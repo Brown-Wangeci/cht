@@ -67,12 +67,34 @@ export async function POST(req: Request) {
 
     const { sessionId, created } = await getOrCreateSessionId();
 
+    // Check cart status before updating
+    const [existingCart] = await db
+      .select({ status: carts.status })
+      .from(carts)
+      .where(eq(carts.id, sessionId))
+      .limit(1);
+
+    if (existingCart?.status === "locked") {
+      return NextResponse.json(
+        { code: "CART_LOCKED", message: "Cart is locked for checkout" },
+        { status: 409 }
+      );
+    }
+
     await db
       .insert(carts)
-      .values({ id: sessionId, items: lines, updatedAt: new Date() })
+      .values({
+        id: sessionId,
+        items: lines,
+        status: "open", // ensure status is open on upsert
+        updatedAt: new Date()
+      })
       .onConflictDoUpdate({
         target: carts.id,
-        set: { items: lines, updatedAt: new Date() },
+        set: {
+          items: lines,
+          updatedAt: new Date()
+        },
       });
 
     const res = NextResponse.json({ success: true });

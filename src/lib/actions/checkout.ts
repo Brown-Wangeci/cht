@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { carts, productVariants } from "@/db/schema";
+import { carts, productVariants, checkoutSessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export type CheckoutCartItemInput = {
@@ -25,22 +25,10 @@ export type CheckoutTotals = {
   subtotal: number;
 };
 
-export type CheckoutShippingCookie = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  address1: string;
-  address2: string;
-  city: string;
-  country: string;
-  notes: string;
-  totals: CheckoutTotals;
-  items: CheckoutCartItemInput[];
-};
 
-const CHECKOUT_SHIPPING_COOKIE = "checkout_shipping";
+
 const CART_SESSION_COOKIE = "cart_session";
+const CHECKOUT_SESSION_COOKIE = "checkout_session";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -169,6 +157,88 @@ export async function getCheckoutCartSnapshot(): Promise<{
   return { items, totals };
 }
 
+
+/**
+ * ✅ Server-trusted cart snapshot by cart id (NO cookies)
+ * Used by payment initiation to avoid cookie mismatch.
+ */
+export async function getCheckoutCartSnapshotByCartId(cartSessionId: string): Promise<{
+  items: CheckoutCartItemInput[];
+  totals: CheckoutTotals;
+}> {
+  if (!cartSessionId?.trim()) {
+    return { items: [], totals: { count: 0, subtotal: 0 } };
+  }
+
+  const [cartRow] = await db
+    .select()
+    .from(carts)
+    .where(eq(carts.id, cartSessionId))
+    .limit(1);
+
+  const rawLines = Array.isArray(cartRow?.items) ? (cartRow!.items as unknown[]) : [];
+
+  const lines: DbCartLine[] = rawLines
+    .map((x) => {
+      const v = x as any;
+      const variantId = typeof v?.variantId === "string" ? v.variantId.trim() : "";
+      const quantity = clampInt(v?.quantity, 1, 99);
+      if (!variantId) return null;
+      return { variantId, quantity };
+    })
+    .filter(Boolean) as DbCartLine[];
+
+  if (!lines.length) {
+    return { items: [], totals: { count: 0, subtotal: 0 } };
+  }
+
+  const resolved = await Promise.all(
+    lines.map(async (line) => {
+      const variant = await db.query.productVariants.findFirst({
+        where: eq(productVariants.id, line.variantId),
+        with: { product: true },
+      });
+
+      if (!variant || !variant.product) return null;
+
+      const stock = Number(variant.stockOnHand ?? 0);
+      if (stock <= 0) return null;
+
+      const qty = clampInt(line.quantity, 1, Math.min(99, stock));
+
+      const image = Array.isArray(variant.product.images)
+        ? variant.product.images[0] ?? ""
+        : "";
+
+      return {
+        variantId: String(variant.id),
+        productId: String(variant.product.id),
+
+        name: String(variant.product.name ?? "").trim(),
+        slug: String(variant.product.slug ?? "").trim(),
+        category: String(variant.product.category ?? "").trim(),
+        image: String(image ?? "").trim(),
+
+        weightGrams: Number(variant.weightGrams) || 0,
+        price: clampMoney(variant.price),
+        quantity: qty,
+      } satisfies CheckoutCartItemInput;
+    })
+  );
+
+  const items = resolved.filter(Boolean) as CheckoutCartItemInput[];
+
+  if (!items.length) {
+    throw new Error("One or more items are no longer available");
+  }
+
+  const totals = calcTotals(items);
+  return { items, totals };
+}
+
+
+
+
 export async function submitShipping(formData: FormData) {
   const firstName = getRequired(formData, "firstName");
   const lastName = getRequired(formData, "lastName");
@@ -183,10 +253,7 @@ export async function submitShipping(formData: FormData) {
 
   const phone = normalizePhone(phoneRaw);
 
-  const { items, totals } = await getCheckoutCartSnapshot();
-
-  if (!items.length) redirect("/products");
-
+  // Validate fields (same as you had)
   if (
     !firstName ||
     !lastName ||
@@ -201,23 +268,121 @@ export async function submitShipping(formData: FormData) {
   }
 
   const store = await cookies();
-  store.set(
-    CHECKOUT_SHIPPING_COOKIE,
-    JSON.stringify({
-      firstName,
-      lastName,
-      email,
-      phone,
-      address1,
-      address2,
-      city,
-      country,
-      notes,
-      totals,
-      items,
-    } satisfies CheckoutShippingCookie),
-    { ...cookieOptions }
-  );
+  const cartSessionId = store.get(CART_SESSION_COOKIE)?.value?.trim();
+
+  if (!cartSessionId) {
+    redirect("/products");
+  }
+
+  // Server-trusted cart snapshot
+  const { items, totals } = await getCheckoutCartSnapshot();
+  if (!items.length) redirect("/products");
+
+  const existingCheckoutId = store.get(CHECKOUT_SESSION_COOKIE)?.value?.trim();
+
+  const result = await db.transaction(async (tx) => {
+    // Ensure cart exists and lock it
+    const [cartRow] = await tx
+      .select({ id: carts.id, status: carts.status })
+      .from(carts)
+      .where(eq(carts.id, cartSessionId))
+      .limit(1);
+
+    if (!cartRow) {
+      // cart cookie exists but cart row missing
+      return { mode: "missing_cart" as const };
+    }
+
+    // Lock the cart (idempotent)
+    if (cartRow.status !== "locked") {
+      await tx.update(carts).set({ status: "locked", lockedAt: new Date() }).where(eq(carts.id, cartSessionId));
+    }
+
+    // If there is a checkout session cookie, try to update THAT session (only if safe)
+    if (existingCheckoutId) {
+      const [existing] = await tx
+        .select()
+        .from(checkoutSessions)
+        .where(eq(checkoutSessions.id, existingCheckoutId))
+        .limit(1);
+
+      const belongsToThisCart = existing?.cartSessionId === cartSessionId;
+      const isEditable = existing?.status === "pending";
+
+      if (existing && belongsToThisCart && isEditable) {
+        await tx
+          .update(checkoutSessions)
+          .set({
+            email,
+            firstName,
+            lastName,
+            phone,
+            addressLine1: address1,
+            addressLine2: address2 || null,
+            city,
+            country,
+            notes: notes || null,
+            totalAmount: String(totals.subtotal),
+            currency: "KES",
+            updatedAt: new Date(),
+          })
+          .where(eq(checkoutSessions.id, existingCheckoutId));
+
+        return { mode: "updated" as const, checkoutSessionId: existingCheckoutId };
+      }
+
+      // Cookie exists but session is invalid/stale/mismatch → create new session
+      const [created] = await tx
+        .insert(checkoutSessions)
+        .values({
+          cartSessionId,
+          email,
+          firstName,
+          lastName,
+          phone,
+          addressLine1: address1,
+          addressLine2: address2 || null,
+          city,
+          country,
+          notes: notes || null,
+          totalAmount: String(totals.subtotal),
+          currency: "KES",
+          status: "pending",
+        })
+        .returning();
+
+      return { mode: "created" as const, checkoutSessionId: created.id };
+    }
+
+    // No checkout cookie → create new session
+    const [created] = await tx
+      .insert(checkoutSessions)
+      .values({
+        cartSessionId,
+        email,
+        firstName,
+        lastName,
+        phone,
+        addressLine1: address1,
+        addressLine2: address2 || null,
+        city,
+        country,
+        notes: notes || null,
+        totalAmount: String(totals.subtotal),
+        currency: "KES",
+        status: "pending",
+      })
+      .returning();
+
+    return { mode: "created" as const, checkoutSessionId: created.id };
+  });
+
+  if (result.mode === "missing_cart") {
+    redirect("/products");
+  }
+
+  // Ensure cookie is set to the active session
+  store.set(CHECKOUT_SESSION_COOKIE, result.checkoutSessionId, cookieOptions);
 
   redirect("/checkout/payment");
 }

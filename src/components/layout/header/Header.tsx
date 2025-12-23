@@ -13,6 +13,7 @@ import { getCompany } from "@/lib/company";
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const inCheckout = pathname.startsWith("/checkout");
 
   const toggleCart = useCartStore((s) => s.toggleCart);
   const isCartOpen = useCartStore((s) => s.isOpen);
@@ -73,17 +74,19 @@ export default function Header() {
               ))}
 
               {/* Cart button (drawer) */}
-              <button
-                type="button"
-                className={styles.cart}
-                onClick={openCartFromHeader}
-                aria-label="Open cart"
-              >
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <ShoppingCart size={20} />
-                  {cartCount > 0 && <CartBadge count={cartCount} />}
-                </div>
-              </button>
+              {!inCheckout && (
+                <button
+                  type="button"
+                  className={styles.cart}
+                  onClick={openCartFromHeader}
+                  aria-label="Open cart"
+                >
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <ShoppingCart size={20} />
+                    {cartCount > 0 && <CartBadge count={cartCount} />}
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -134,17 +137,19 @@ export default function Header() {
               ))}
 
               {/* Mobile cart button (drawer) */}
-              <button
-                type="button"
-                className={styles.mobileCart}
-                onClick={openCartFromMobileMenu}
-                aria-label="Open cart"
-              >
-                <div style={{ position: "relative" }}>
-                  <ShoppingCart size={28} />
-                  {cartCount > 0 && <CartBadge count={cartCount} />}
-                </div>
-              </button>
+              {!inCheckout && (
+                <button
+                  type="button"
+                  className={styles.mobileCart}
+                  onClick={openCartFromMobileMenu}
+                  aria-label="Open cart"
+                >
+                  <div style={{ position: "relative" }}>
+                    <ShoppingCart size={28} />
+                    {cartCount > 0 && <CartBadge count={cartCount} />}
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         )}
