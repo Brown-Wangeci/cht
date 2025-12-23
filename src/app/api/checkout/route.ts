@@ -1,3 +1,4 @@
+// app/api/checkout/route.ts
 import { db } from "@/db";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -62,6 +63,7 @@ export async function POST() {
       return NextResponse.json({ error: "Missing checkout session" }, { status: 400 });
     }
 
+    // 1) Load checkout session from DB
     const [session] = await db
       .select()
       .from(checkoutSessions)
@@ -69,19 +71,32 @@ export async function POST() {
       .limit(1);
 
     if (!session) {
+      // stale cookie: clear it
       const res = NextResponse.json({ error: "Checkout session not found" }, { status: 400 });
       res.cookies.delete(CHECKOUT_COOKIE);
       return res;
     }
 
-    // Only allow payment start for pending sessions
-    if (session.status !== "pending") {
+    // 2) If we already created an invoice earlier, reuse stored checkoutUrl (prevents duplicates)
+    //    Requires checkoutSessions.checkoutUrl in schema.
+    if (session.paymentReference && (session as any).checkoutUrl) {
+      return NextResponse.json({
+        checkoutUrl: (session as any).checkoutUrl,
+        paymentReference: session.paymentReference,
+        reused: true,
+      });
+    }
+
+    // 3) Only allow payment start for payable sessions
+    //    (allow "pending" and "processing" in case user retries)
+    if (session.status !== "pending" && session.status !== "processing") {
       return NextResponse.json(
         { error: "Checkout session is not payable", code: "SESSION_NOT_PAYABLE" },
         { status: 409 }
       );
     }
 
+    // 4) Ensure cart is locked
     const [cart] = await db
       .select({ status: carts.status })
       .from(carts)
@@ -95,14 +110,16 @@ export async function POST() {
       );
     }
 
-    // compute totals from DB cart id, not cookies
+    // 5) Recompute totals from DB cart id (anti-tamper, avoids cookie mismatch)
     const { totals } = await getCheckoutCartSnapshotByCartId(session.cartSessionId);
 
-    const baseUrl = process.env.APP_URL; // server-only
+    // 6) Build redirect URL (server-only base url)
+    const baseUrl = process.env.APP_URL;
     if (!baseUrl) throw new Error("Missing APP_URL");
 
     const redirectUrl = `${baseUrl}/checkout/success?ref=${session.id}`;
 
+    // 7) Create IntaSend hosted checkout
     const intasend = await createIntaSendCheckout({
       amount: Number(totals.subtotal),
       currency: String(session.currency ?? "KES"),
@@ -111,24 +128,27 @@ export async function POST() {
       lastName: str(session.lastName),
       phone: normalizePhone(session.phone),
       apiRef: String(session.id),
-      redirectUrl: redirectUrl,
+      redirectUrl,
     });
 
     const paymentReference = intasend.invoice_id ?? null;
     const checkoutUrl = intasend.checkout_url ?? intasend.url ?? null;
 
-    if (!checkoutUrl) {
-      throw new Error("IntaSend did not return a checkout URL");
-    }
+    if (!checkoutUrl) throw new Error("IntaSend did not return a checkout URL");
 
-    if (paymentReference) {
-      await db
-        .update(checkoutSessions)
-        .set({ paymentReference, updatedAt: new Date() })
-        .where(eq(checkoutSessions.id, session.id));
-    }
+    // 8) Persist invoice + url + mark session processing
+    await db
+      .update(checkoutSessions)
+      .set({
+        paymentReference,
+        // requires checkout_url column in schema:
+        checkoutUrl: checkoutUrl as any,
+        status: "processing",
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(checkoutSessions.id, session.id));
 
-    return NextResponse.json({ checkoutUrl, paymentReference });
+    return NextResponse.json({ checkoutUrl, paymentReference, reused: false });
   } catch (error) {
     console.error("Checkout start error:", error);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });

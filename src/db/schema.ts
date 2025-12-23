@@ -81,7 +81,7 @@ export const checkoutSessions = pgTable("checkout_sessions", {
 
   status: text("status").notNull().default("pending"),
   paymentReference: text("payment_reference"),
-  // checkOutUrl: text("checkout_url"),
+  checkoutUrl: text("checkout_url"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
