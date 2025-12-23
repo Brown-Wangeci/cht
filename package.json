@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",
+    "intasend-node": "^1.1.2",
     "lucide-react": "^0.555.0",
     "next": "16.0.10",
     "postgres": "^3.4.7",
