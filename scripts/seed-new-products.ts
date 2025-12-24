@@ -1,231 +1,203 @@
-import "dotenv/config";
-import { db } from "../src/db";
-import { products, productVariants } from "../src/db/schema";
+import { db } from "@/db";
+import { products, productVariants } from "@/db/schema";
 
-async function seedProducts() {
-  console.log("🌱 Seeding premium tea catalog...");
+
+async function seed() {
+  console.log("Seeding products...");
 
   const data = [
     {
-      id: "prod-nandi-hills-gold",
-      slug: "nandi-hills-gold",
-      name: "Nandi Hills Gold",
-      category: "Black Tea",
-      description:
-        "A bold, malty black tea grown in the cool highlands of Nandi Hills. Deep amber liquor with honeyed malt and gentle citrus notes.",
-      images: [
-        "/images/products/nandi-hills-gold-1.jpg",
-        "/images/products/nandi-hills-gold-2.jpg",
-        "/images/products/nandi-hills-gold-3.jpg",
-        "/images/products/nandi-hills-gold-4.jpg",
-        "/images/products/nandi-hills-gold-5.jpg",
-      ],
-      tastingNotes: ["Malt", "Citrus Peel", "Honey"],
-      ingredients: "100% Kenyan black tea",
-      isNew: true,
-      isBestSeller: false,
-      variants: [
-        { id: "var-nandi-100", grams: 100, price: "850", sku: "NHG-100G" },
-        { id: "var-nandi-250", grams: 250, price: "1800", sku: "NHG-250G" },
-      ],
+      product: {
+        id: "black-whole-leaf",
+        name: "Kiriti Black Whole Leaf",
+        slug: "kiriti-black-whole-leaf",
+        category: "Black Teas",
+        description: "Meticulously crafted from tender, handpicked leaves, selected for their superior quality. It gives a mellow & smooth flavor. Best taken black.",
+        images: ["/images/products/black-whole-leaf-1.png", "/images/products/black-whole-leaf-2.png"],
+        tastingNotes: ["Mellow", "Smooth"],
+        ingredients: "100% Kenyan Orthodox Black Tea",
+      },
+      variant: { id: "v-bwl-100", weightGrams: 100, price: "500.00", sku: "KIR-BLK-100" }
     },
-
     {
-      id: "prod-mt-kenya-silver-needle",
-      slug: "mt-kenya-silver-needle",
-      name: "Mt. Kenya Silver Needle",
-      category: "White Tea",
-      description:
-        "Exceptionally rare white tea made from young silver buds, hand-plucked at dawn. Delicate, silky, and lightly floral.",
-      images: [
-        "/images/products/mt-kenya-silver-needle-1.jpg",
-        "/images/products/mt-kenya-silver-needle-2.jpg",
-        "/images/products/mt-kenya-silver-needle-3.jpg",
-        "/images/products/mt-kenya-silver-needle-4.jpg",
-        "/images/products/mt-kenya-silver-needle-5.jpg",
-      ],
-      tastingNotes: ["Floral", "Apricot", "Fresh Cucumber"],
-      ingredients: "Hand-plucked white tea buds",
-      isNew: false,
-      isBestSeller: false,
-      variants: [
-        { id: "var-silver-30", grams: 30, price: "1500", sku: "MKS-30G" },
-        { id: "var-silver-60", grams: 60, price: "2700", sku: "MKS-60G" },
-      ],
+      product: {
+        id: "imperial-black",
+        name: "Kiriti Imperial Black Tea",
+        slug: "kiriti-imperial-black",
+        category: "Black Teas",
+        description: "The epitome of elegance and 100% natural. A premium loose leaf tea designed for a refined tea experience.",
+        images: ["/images/products/imperial-black-1.png", "/images/products/imperial-black-2.png"],
+        tastingNotes: ["Elegant", "Rich"],
+        ingredients: "100% Natural Imperial Black Tea",
+      },
+      variant: { id: "v-imp-250", weightGrams: 250, price: "1200.00", sku: "KIR-IMP-250" }
     },
-
     {
-      id: "prod-royal-purple-leaf",
-      slug: "royal-purple-leaf",
-      name: "Royal Purple Leaf",
-      category: "Specialty Tea",
-      description:
-        "Kenya’s famous purple tea, rich in antioxidants. Smooth and lightly sweet with earthy undertones and a plum finish.",
-      images: [
-        "/images/products/royal-purple-leaf-1.jpg",
-        "/images/products/royal-purple-leaf-2.jpg",
-        "/images/products/royal-purple-leaf-3.jpg",
-        "/images/products/royal-purple-leaf-4.jpg",
-        "/images/products/royal-purple-leaf-5.jpg",
-      ],
-      tastingNotes: ["Plum", "Earth", "Sweet Grass"],
-      ingredients: "Kenyan purple tea leaves",
-      isNew: false,
-      isBestSeller: true,
-      variants: [
-        { id: "var-purple-50", grams: 50, price: "1200", sku: "RPL-50G" },
-        { id: "var-purple-100", grams: 100, price: "2100", sku: "RPL-100G" },
-      ],
+      product: {
+        id: "english-breakfast",
+        name: "Kiriti Classic English Breakfast",
+        slug: "kiriti-english-breakfast",
+        category: "Black Teas",
+        description: "A robust and classic blend best taken with milk.",
+        images: ["/images/products/english-breakfast-1.png", "/images/products/english-breakfast-2.png"],
+        tastingNotes: ["Robust", "Classic"],
+        ingredients: "Kenyan Black Tea",
+      },
+      variant: { id: "v-eb-500", weightGrams: 500, price: "800.00", sku: "KIR-EB-500" }
     },
-
     {
-      id: "prod-kericho-sunrise",
-      slug: "kericho-sunrise",
-      name: "Kericho Sunrise",
-      category: "Breakfast Black Tea",
-      description:
-        "A bright, brisk black tea crafted for energizing mornings. Strong enough for milk, smooth enough on its own.",
-      images: [
-        "/images/products/kericho-sunrise-1.jpg",
-        "/images/products/kericho-sunrise-2.jpg",
-        "/images/products/kericho-sunrise-3.jpg",
-        "/images/products/kericho-sunrise-4.jpg",
-        "/images/products/kericho-sunrise-5.jpg",
-      ],
-      tastingNotes: ["Brisk Malt", "Toast", "Light Citrus"],
-      ingredients: "Kenyan black tea",
-      isNew: false,
-      isBestSeller: true,
-      variants: [
-        { id: "var-kericho-100", grams: 100, price: "700", sku: "KS-100G" },
-        { id: "var-kericho-250", grams: 250, price: "1500", sku: "KS-250G" },
-      ],
+      product: {
+        id: "black-ginger",
+        name: "Kiriti Black Ginger Tea",
+        slug: "kiriti-black-ginger",
+        category: "Flavored Black Teas",
+        description: "Premium loose leaf black tea infused with natural ginger. Can be taken with milk.",
+        images: ["/images/products/black-ginger-1.png", "/images/products/black-ginger-2.png"],
+        tastingNotes: ["Spicy", "Warming"],
+        ingredients: "Kenyan Black Tea, Natural Ginger",
+      },
+      variant: { id: "v-bg-100", weightGrams: 100, price: "450.00", sku: "KIR-BGIN-100" }
     },
-
     {
-      id: "prod-rift-valley-green",
-      slug: "rift-valley-green",
-      name: "Rift Valley Green",
-      category: "Green Tea",
-      description:
-        "Clean and refreshing green tea grown along the Rift Valley slopes. Lightly steamed to preserve antioxidants.",
-      images: [
-        "/images/products/rift-valley-green-1.jpg",
-        "/images/products/rift-valley-green-2.jpg",
-        "/images/products/rift-valley-green-3.jpg",
-        "/images/products/rift-valley-green-4.jpg",
-        "/images/products/rift-valley-green-5.jpg",
-      ],
-      tastingNotes: ["Fresh Grass", "Almond", "Sweet Pea"],
-      ingredients: "Kenyan green tea",
-      isNew: false,
-      isBestSeller: false,
-      variants: [
-        { id: "var-rift-75", grams: 75, price: "900", sku: "RVG-75G" },
-        { id: "var-rift-150", grams: 150, price: "1650", sku: "RVG-150G" },
-      ],
+      product: {
+        id: "masala-chai",
+        name: "Kiriti Black Masala Chai",
+        slug: "kiriti-masala-chai",
+        category: "Flavored Black Teas",
+        description: "A traditional spiced tea blend featuring premium black tea and aromatic spices. Can be taken with milk.",
+        images: ["/images/products/masala-chai-1.png", "/images/products/masala-chai-2.png"],
+        tastingNotes: ["Aromatic", "Spiced"],
+        ingredients: "Kenyan Black Tea, Masala Spices",
+      },
+      variant: { id: "v-mc-100", weightGrams: 100, price: "450.00", sku: "KIR-MAS-100" }
     },
-
     {
-      id: "prod-lamu-spiced-chai",
-      slug: "lamu-spiced-chai",
-      name: "Lamu Spiced Chai",
-      category: "Spiced Black Tea",
-      description:
-        "Inspired by coastal Swahili traditions. A warming blend of black tea and aromatic spices.",
-      images: [
-        "/images/products/lamu-spiced-chai-1.jpg",
-        "/images/products/lamu-spiced-chai-2.jpg",
-        "/images/products/lamu-spiced-chai-3.jpg",
-        "/images/products/lamu-spiced-chai-4.jpg",
-        "/images/products/lamu-spiced-chai-5.jpg",
-      ],
-      tastingNotes: ["Cardamom", "Cinnamon", "Ginger"],
-      ingredients: "Black tea, cardamom, cinnamon, ginger, cloves",
-      isNew: false,
-      isBestSeller: false,
-      variants: [
-        { id: "var-lamu-100", grams: 100, price: "950", sku: "LSC-100G" },
-        { id: "var-lamu-250", grams: 250, price: "2100", sku: "LSC-250G" },
-      ],
+      product: {
+        id: "hong-cha",
+        name: "Kiriti Hóng Chá",
+        slug: "kiriti-hong-cha",
+        category: "Black Teas",
+        description: "Kenya Chinese Tea (Hóng Chá). A specialty loose leaf tea best taken black.",
+        images: ["/images/products/hong-cha-1.png", "/images/products/hong-cha-2.png"],
+        tastingNotes: ["Unique", "Cultural Fusion"],
+        ingredients: "Kenyan Black Tea (Chinese Style Processing)",
+      },
+      variant: { id: "v-hc-250", weightGrams: 250, price: "1500.00", sku: "KIR-HONG-250" }
     },
-
     {
-      id: "prod-mara-sunset-rooibos",
-      slug: "mara-sunset-rooibos",
-      name: "Mara Sunset Rooibos",
-      category: "Herbal Tea",
-      description:
-        "Naturally caffeine-free rooibos with smooth honey-like sweetness. Perfect for evenings.",
-      images: [
-        "/images/products/mara-sunset-rooibos-1.jpg",
-        "/images/products/mara-sunset-rooibos-2.jpg",
-        "/images/products/mara-sunset-rooibos-3.jpg",
-        "/images/products/mara-sunset-rooibos-4.jpg",
-        "/images/products/mara-sunset-rooibos-5.jpg",
-      ],
-      tastingNotes: ["Vanilla", "Honey", "Red Berries"],
-      ingredients: "Rooibos leaves",
-      isNew: false,
-      isBestSeller: false,
-      variants: [
-        { id: "var-mara-100", grams: 100, price: "800", sku: "MSR-100G" },
-        { id: "var-mara-200", grams: 200, price: "1450", sku: "MSR-200G" },
-      ],
+      product: {
+        id: "green-tea",
+        name: "Kiriti Green Tea",
+        slug: "kiriti-green-tea",
+        category: "Green Tea",
+        description: "Retains its natural green color and fresh, grassy taste. Known for its antioxidant properties and rejuvenating experience.",
+        images: ["/images/products/green-tea-1.png", "/images/products/green-tea-2.png"],
+        tastingNotes: ["Fresh", "Grassy"],
+        ingredients: "100% Kenyan Green Tea",
+      },
+      variant: { id: "v-gt-100", weightGrams: 100, price: "600.00", sku: "KIR-GRN-100" }
     },
+    {
+      product: {
+        id: "purple-tea",
+        name: "Kiriti Purple Tea",
+        slug: "kiriti-purple-tea",
+        category: "Purple Tea",
+        description: "A rare variety with a distinct purple hue from high anthocyanin content. Offers a refreshing taste with subtle floral notes.",
+        images: ["/images/products/purple-tea-1.png", "/images/products/purple-tea-2.png"],
+        tastingNotes: ["Floral", "Refreshing"],
+        ingredients: "100% Kenyan Purple Tea",
+      },
+      variant: { id: "v-pt-100", weightGrams: 100, price: "750.00", sku: "KIR-PUR-100" }
+    },
+    {
+      product: {
+        id: "purple-hibiscus",
+        name: "Kiriti Purple Hibiscus",
+        slug: "kiriti-purple-hibiscus",
+        category: "Herbal Infusions",
+        description: "A unique blend that marries the lush richness of purple tea with the tangy brilliance of hibiscus blooms.",
+        images: ["/images/products/purple-hibiscus-1.png", "/images/products/purple-hibiscus-2.png"],
+        tastingNotes: ["Tangy", "Rich"],
+        ingredients: "Purple Tea, Hibiscus Blooms",
+      },
+      variant: { id: "v-ph-100", weightGrams: 100, price: "700.00", sku: "KIR-PHIB-100" }
+    },
+    {
+      product: {
+        id: "hibiscus",
+        name: "Kiriti Hibiscus",
+        slug: "kiriti-hibiscus",
+        category: "Herbal Infusions",
+        description: "A rejuvenating caffeine-free herbal infusion crafted from the finest hibiscus blooms.",
+        images: [
+          "/images/products/hibiscus-1.png",
+          "/images/products/hibiscus-2.png",
+          "/images/products/hibiscus-3.png"
+        ],
+        tastingNotes: ["Tart", "Refreshing"],
+        ingredients: "100% Hibiscus Blooms",
+      },
+      variant: { id: "v-hib-100", weightGrams: 100, price: "550.00", sku: "KIR-HIB-100" }
+    },
+    {
+      product: {
+        id: "chamomile",
+        name: "Kiriti Chamomile",
+        slug: "kiriti-chamomile",
+        category: "Herbal Infusions",
+        description: "A caffeine-free herbal infusion offering soothing calmness with every sip.",
+        images: [
+          "/images/products/chamomile-1.png",
+          "/images/products/chamomile-2.png",
+          "/images/products/chamomile-3.png"
+        ],
+        tastingNotes: ["Calming", "Soothing"],
+        ingredients: "100% Chamomile Flowers",
+      },
+      variant: { id: "v-cham-100", weightGrams: 100, price: "650.00", sku: "KIR-CHAM-100" }
+    },
+    {
+      product: {
+        id: "earl-grey",
+        name: "Kiriti Earl Grey Tea",
+        slug: "kiriti-earl-grey",
+        category: "Flavored Black Teas",
+        description: "Blends the bold, malty richness of Kenyan black tea with the citrusy brightness of natural bergamot oil.",
+        images: [
+          "/images/products/earl-grey-1.png",
+          "/images/products/earl-grey-2.png"
+        ],
+        tastingNotes: ["Malty", "Citrusy", "Bright"],
+        ingredients: "Kenyan Black Tea, Natural Bergamot Oil",
+      },
+      variant: { id: "v-eg-100", weightGrams: 100, price: "600.00", sku: "KIR-EG-100" }
+    },
+    {
+      product: {
+        id: "rosemary",
+        name: "Kiriti Rosemary",
+        slug: "kiriti-rosemary",
+        category: "Herbal Infusions",
+        description: "A caffeine-free herbal infusion made from the freshest rosemary leaves grown naturally in the lush highlands of Kenya.",
+        images: ["/images/products/rosemary-1.png", "/images/products/rosemary-2.png"],
+        tastingNotes: ["Herbal", "Fresh"],
+        ingredients: "100% Natural Rosemary Leaves",
+      },
+      variant: { id: "v-ros-100", weightGrams: 100, price: "500.00", sku: "KIR-ROS-100" }
+    }
   ];
 
-  for (const p of data) {
-    await db
-      .insert(products)
-      .values({
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        description: p.description,
-        category: p.category,
-        images: p.images,
-        tastingNotes: p.tastingNotes,
-        ingredients: p.ingredients,
-        isNew: p.isNew,
-        isBestSeller: p.isBestSeller,
-      })
-      .onConflictDoUpdate({
-        target: products.id,
-        set: {
-          description: p.description,
-          images: p.images,
-          tastingNotes: p.tastingNotes,
-          ingredients: p.ingredients,
-        },
-      });
-
-    for (const v of p.variants) {
-      await db
-        .insert(productVariants)
-        .values({
-          id: v.id,
-          productId: p.id,
-          weightGrams: v.grams,
-          price: v.price,
-          sku: v.sku,
-          stockOnHand: 50,
-        })
-        .onConflictDoUpdate({
-          target: productVariants.id,
-          set: {
-            price: v.price,
-            stockOnHand: 50,
-          },
-        });
-    }
+  for (const item of data) {
+    await db.insert(products).values(item.product).onConflictDoNothing();
+    await db.insert(productVariants).values({
+      ...item.variant,
+      productId: item.product.id,
+      stockOnHand: 50, // Default seed stock
+    }).onConflictDoNothing();
   }
 
-  console.log("✅ Tea catalog seeded successfully");
-  process.exit(0);
+  console.log("Seeding completed successfully.");
 }
 
-seedProducts().catch((err) => {
-  console.error("❌ Seeding failed:", err);
-  process.exit(1);
-});
+seed().catch(console.error);

@@ -252,6 +252,9 @@ export const useCartStore = create<CartState>()(
               pendingByVariantId: {},        // clear pending
               __flushQueued: false,          // stop queueing
             });
+
+            void get().rehydrateCart();
+
             skipReschedule = true;
             return; // IMPORTANT: prevents rescheduling
           }
