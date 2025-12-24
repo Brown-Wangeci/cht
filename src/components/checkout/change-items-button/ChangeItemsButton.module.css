@@ -1,0 +1,20 @@
+.changeItemsButton {
+  font-size: var(--text-sm);
+  color: var(--color-surface);
+  width: fit-content;
+  padding: 0.4rem 0.8rem;
+  background-color: var(--color-background-alt);
+  border: none;
+  border-radius: var(--radius-md);
+  corner-shape: squircle;
+  cursor: pointer;
+}
+
+.changeItemsButton:hover {
+  opacity: 0.9;
+}
+
+.changeItemsButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

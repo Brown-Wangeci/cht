@@ -3,13 +3,15 @@ import Link from "next/link";
 import styles from "./OrderSummary.module.css";
 import CustomLink from "@/components/ui/custom-link/CustomLink";
 import { getCheckoutCartSnapshot } from "@/lib/actions/checkout";
+import ChangeItemsButton from "../change-items-button/ChangeItemsButton";
 
 
 type OrderSummaryProps = {
   hideEditLink?: boolean;
+  showChangeItemsButton?: boolean;
 };
 
-export default async function OrderSummary( { hideEditLink = false }: OrderSummaryProps) {
+export default async function OrderSummary( { hideEditLink = false, showChangeItemsButton = false }: OrderSummaryProps) {
   const { items, totals } = await getCheckoutCartSnapshot();
   const hasItems = items.length > 0;
 
@@ -22,6 +24,7 @@ export default async function OrderSummary( { hideEditLink = false }: OrderSumma
             Edit
           </Link>
         )}
+        { showChangeItemsButton && <ChangeItemsButton /> }
       </div>
 
       {!hasItems ? (

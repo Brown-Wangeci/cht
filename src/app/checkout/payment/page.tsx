@@ -53,7 +53,7 @@ export default async function PaymentPage() {
 
           <aside className={styles.right} aria-label="Order summary">
             {/* ✅ server-rendered summary, no live cart updates */}
-            <OrderSummary hideEditLink={true} />
+            <OrderSummary hideEditLink={true} showChangeItemsButton={true} />
           </aside>
         </section>
       </Container>

@@ -18,6 +18,7 @@
 .title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
+  white-space: nowrap;
 }
 
 .editLink {
