@@ -29,6 +29,9 @@ interface CartState {
   count: number;
   subtotal: number;
 
+  serverItems: CartItem[];
+  locked: boolean; 
+
   hydrated: boolean;
   syncing: boolean;
   dirty: boolean;
@@ -129,15 +132,18 @@ const attachRetryListeners = () => {
   const flush = () => void useCartStore.getState().__flushToServer?.();
 
   const onOnline = () => {
-    if (useCartStore.getState().dirty) flush();
+    const s = useCartStore.getState();
+    if (!s.locked && s.dirty) flush();
   };
 
   const onFocus = () => {
-    if (useCartStore.getState().dirty) flush();
+    const s = useCartStore.getState();
+    if (!s.locked && s.dirty) flush();
   };
 
   const onVisibility = () => {
-    if (document.visibilityState === "visible" && useCartStore.getState().dirty) flush();
+    const s = useCartStore.getState();
+    if (document.visibilityState === "visible" && !s.locked && s.dirty) flush();
   };
 
   window.addEventListener("online", onOnline);
@@ -155,6 +161,9 @@ export const useCartStore = create<CartState>()(
       items: [],
       count: 0,
       subtotal: 0,
+
+      serverItems: [],
+      locked: false,
 
       hydrated: false,
       syncing: false,
@@ -180,6 +189,7 @@ export const useCartStore = create<CartState>()(
           }
 
           const serverItems = await fetchCartFromServer();
+          set({ serverItems });
 
           // Only overwrite local if we are NOT dirty anymore
           // (dirty implies local optimistic state should remain the UI source of truth).
@@ -198,7 +208,13 @@ export const useCartStore = create<CartState>()(
         } catch (e: any) {
           // Cart is locked → make it read-only and stop retries
           if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
+            // rollback to last server snapshot
+            const rollback = get().serverItems;
             set({
+              items: rollback,
+              count: calcCount(rollback),
+              subtotal: calcSubtotal(rollback),
+              locked: true,
               error: e?.message ?? "Cart is locked for checkout",
               dirty: false,
               pendingByVariantId: {},
@@ -219,6 +235,12 @@ export const useCartStore = create<CartState>()(
       __flushToServer: async () => {
         let skipReschedule = false;
         const state = get();
+
+        if (state.locked) {
+          // Cart is locked → do not attempt syncs
+          return;
+        }
+
         if (state.__flushInFlight) {
           set({ __flushQueued: true });
           return;
@@ -235,6 +257,8 @@ export const useCartStore = create<CartState>()(
           // Race safety: only clear dirty if cart didn't change during the request
           if (get().items === snapshot) {
             set({
+              serverItems: snapshot,
+              locked: false,
               dirty: false,
               error: null,
               pendingByVariantId: {},
@@ -246,14 +270,20 @@ export const useCartStore = create<CartState>()(
         } catch (e: any) {
           // Cart is locked: stop retry loop and stop treating it as dirty
           if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
+            // rollback to last server snapshot
+            const rollback = get().serverItems;
             set({
+              items: rollback,
+              count: calcCount(rollback),
+              subtotal: calcSubtotal(rollback),
+              locked: true,
               error: e?.message ?? "Cart is locked for checkout",
               dirty: false,                 // IMPORTANT: stops retry-on-focus/online
               pendingByVariantId: {},        // clear pending
               __flushQueued: false,          // stop queueing
             });
 
-            void get().rehydrateCart();
+            // void get().rehydrateCart();
 
             skipReschedule = true;
             return; // IMPORTANT: prevents rescheduling
@@ -279,6 +309,13 @@ export const useCartStore = create<CartState>()(
       },
 
       addItem: (variantProduct) => {
+
+        if (get().locked) {
+          set({ error: "Cart is locked for checkout" });
+          return;
+        }
+
+
         const prev = get().items;
         const existing = prev.find((i) => i.variantId === variantProduct.variantId);
 
@@ -311,6 +348,12 @@ export const useCartStore = create<CartState>()(
       },
 
       decreaseItemQuantity: (variantId) => {
+
+        if (get().locked) {
+          set({ error: "Cart is locked for checkout" });
+          return;
+        }
+
         const prev = get().items;
         const existing = prev.find((i) => i.variantId === variantId);
         if (!existing) return;
@@ -333,6 +376,13 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (variantId) => {
+
+        if (get().locked) {
+          set({ error: "Cart is locked for checkout" });
+          return;
+        }
+
+
         const next = get().items.filter((i) => i.variantId !== variantId);
 
         set((s) => ({
@@ -348,6 +398,11 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
+        if (get().locked) {
+          set({ error: "Cart is locked for checkout" });
+          return;
+        }
+
         const pending: Record<string, boolean> = {};
         for (const i of get().items) pending[i.variantId] = true;
 
@@ -371,6 +426,8 @@ export const useCartStore = create<CartState>()(
       name: "tea-cart-storage",
       partialize: (s) => ({
         items: s.items,
+        serverItems: s.serverItems,
+        locked: s.locked,
         dirty: s.dirty,
         error: s.error,
       }),
@@ -380,6 +437,10 @@ export const useCartStore = create<CartState>()(
         state.hydrated = true;
         state.count = calcCount(state.items);
         state.subtotal = calcSubtotal(state.items);
+
+        (state as any).serverItems = Array.isArray((state as any).serverItems)
+          ? (state as any).serverItems
+          : [];
 
         attachRetryListeners();
 
