@@ -54,6 +54,14 @@
   gap: var(--space-md);
 }
 
+.headerBottom {
+  margin-top: var(--space-sm);
+  /* background-color: red; */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
@@ -74,7 +82,6 @@
 }
 
 .clearBtn {
-  margin-top: var(--space-sm);
   border: none;
   background: none;
   padding: 0;

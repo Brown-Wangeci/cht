@@ -49,6 +49,9 @@ interface CartState {
   removeItem: (variantId: string) => void;
   clearCart: () => void;
 
+  setLocked: (locked: boolean) => void;
+  setError: (error: string | null) => void;
+
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
@@ -399,7 +402,7 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         if (get().locked) {
-          set({ error: "Cart is locked for checkout" });
+          set({ error: "Your cart is locked during checkout. Click “Change Items” to edit." });
           return;
         }
 
@@ -420,6 +423,8 @@ export const useCartStore = create<CartState>()(
 
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
+      setLocked: (locked) => set({ locked }),
+      setError: (error) => set({ error }),
       toggleCart: () => set({ isOpen: !get().isOpen }),
     }),
     {

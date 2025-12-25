@@ -8,6 +8,7 @@ import CartDrawerItem from "./CartDrawerItem";
 import useLockBodyScroll from "@/lib/hooks/useLockBodyScroll";
 import CustomLink from "@/components/ui/custom-link/CustomLink";
 import { usePathname } from "next/navigation";
+import ChangeItemsButton from "@/components/checkout/change-items-button/ChangeItemsButton";
 
 export default function CartDrawer() {
   const pathname = usePathname();
@@ -17,6 +18,7 @@ export default function CartDrawer() {
   const closeCart = useCartStore((s) => s.closeCart);
   const clearCart = useCartStore((s) => s.clearCart);
   const rehydrateCart = useCartStore((s) => s.rehydrateCart);
+  const locked = useCartStore((s) => s.locked);
 
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
@@ -60,6 +62,7 @@ export default function CartDrawer() {
               ✕
             </button>
           </div>
+          <div className={styles.headerBottom}>
 
           {items.length > 0 && (
             <button
@@ -73,8 +76,15 @@ export default function CartDrawer() {
             </button>
           )}
 
+          { locked &&
+            <div style={{ justifyContent: "flex-end", display: "flex", backgroundColor: "red" }}>
+              <ChangeItemsButton />
+            </div>
+          }
+          </div>
+
           {error ? (
-            <p style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+            <p style={{ marginTop: "var(--space-sm)", fontSize: 12, opacity: 0.8 }}>
               {error} {dirty ? "— Changes will sync when server is back." : null}
             </p>
           ) : null}

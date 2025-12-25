@@ -3,15 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./ChangeItemsButton.module.css";
+import { useCartStore } from "@/lib/stores/cart";
 
 export default function ChangeItemsButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+
+  const locked = useCartStore((s) => s.locked);
+  const setLocked = useCartStore((s) => s.setLocked);
+  const setError = useCartStore((s) => s.setError);
+  const rehydrateCart = useCartStore((s) => s.rehydrateCart)
+
+  if (!locked) return null;
+
   const handleCancelCheckout = async () => {
     if (loading) return;
 
     setLoading(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/checkout/cancel", {
@@ -21,9 +31,17 @@ export default function ChangeItemsButton() {
 
       const data = await res.json().catch(() => ({}));
 
+
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to cancel checkout");
       }
+
+      // success: unlock cart + clear error
+      setLocked(false);
+      setError(null);
+
+      // Optional but good: refresh state from server after cancel
+      void rehydrateCart();
 
       /**
        * ✅ Cart is now unlocked
@@ -35,6 +53,8 @@ export default function ChangeItemsButton() {
     } catch (err: any) {
       setLoading(false);
       alert(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
   };
 
