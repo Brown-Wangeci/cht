@@ -77,7 +77,7 @@ export default function CartDrawer() {
           )}
 
           { locked &&
-            <div style={{ justifyContent: "flex-end", display: "flex", backgroundColor: "red" }}>
+            <div style={{ justifyContent: "flex-end", display: "flex"}}>
               <ChangeItemsButton />
             </div>
           }
