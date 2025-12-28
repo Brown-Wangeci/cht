@@ -29,8 +29,6 @@ export default function Header() {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    // { href: "/about", label: "Our Story" },
-    // { href: "/contact", label: "Contact" },
     { href: "/products", label: "Shop" },
   ];
 
@@ -39,12 +37,7 @@ export default function Header() {
     return pathname.startsWith(href);
   };
 
-  const openCartFromHeader = useCallback(() => {
-    toggleCart();
-  }, [toggleCart]);
-
-  const openCartFromMobileMenu = useCallback(() => {
-    setMobileMenuOpen(false);
+  const openCart = useCallback(() => {
     toggleCart();
   }, [toggleCart]);
 
@@ -73,15 +66,15 @@ export default function Header() {
                 </Link>
               ))}
 
-              {/* Cart button (drawer) */}
+              {/* Desktop cart */}
               {!inCheckout && (
                 <button
                   type="button"
                   className={styles.cart}
-                  onClick={openCartFromHeader}
+                  onClick={openCart}
                   aria-label="Open cart"
                 >
-                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <div className={styles.cartIconWrap}>
                     <ShoppingCart size={20} />
                     {cartCount > 0 && <CartBadge count={cartCount} />}
                   </div>
@@ -89,15 +82,31 @@ export default function Header() {
               )}
             </div>
 
-            {/* Mobile Menu Toggle */}
-            <button
-              className={styles.mobileToggle}
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open menu"
-              type="button"
-            >
-              ☰
-            </button>
+            {/* Mobile actions (cart + menu) */}
+            <div className={styles.mobileActions}>
+              {!inCheckout && (
+                <button
+                  type="button"
+                  className={styles.mobileCart}
+                  onClick={openCart}
+                  aria-label="Open cart"
+                >
+                  <div className={styles.cartIconWrap}>
+                    <ShoppingCart size={24} />
+                    {cartCount > 0 && <CartBadge count={cartCount} />}
+                  </div>
+                </button>
+              )}
+
+              <button
+                className={styles.mobileToggle}
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Open menu"
+                type="button"
+              >
+                ☰
+              </button>
+            </div>
           </nav>
         </Container>
 
@@ -135,21 +144,6 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
-
-              {/* Mobile cart button (drawer) */}
-              {!inCheckout && (
-                <button
-                  type="button"
-                  className={styles.mobileCart}
-                  onClick={openCartFromMobileMenu}
-                  aria-label="Open cart"
-                >
-                  <div style={{ position: "relative" }}>
-                    <ShoppingCart size={28} />
-                    {cartCount > 0 && <CartBadge count={cartCount} />}
-                  </div>
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -160,23 +154,7 @@ export default function Header() {
 
 function CartBadge({ count }: { count: number }) {
   return (
-    <span
-      style={{
-        position: "absolute",
-        top: "-8px",
-        right: "-8px",
-        backgroundColor: "var(--color-accent)",
-        color: "white",
-        fontSize: "0.7rem",
-        fontWeight: "bold",
-        height: "16px",
-        width: "16px",
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+    <span className={styles.cartBadge}>
       {count}
     </span>
   );

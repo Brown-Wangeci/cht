@@ -70,7 +70,7 @@ export default function ChangeItemsButton() {
       disabled={loading}
       className={styles.changeItemsButton}
     >
-        {loading ? "Cancelling…" : "Change Items"}
+        {loading ? "Changing…" : "Change Items"}
     </button>
   );
 }
