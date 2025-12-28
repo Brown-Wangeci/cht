@@ -237,9 +237,9 @@ export async function getCheckoutCartSnapshotByCartId(cartSessionId: string): Pr
 }
 
 
+export type SubmitShippingResult = { ok: true; checkoutSessionId: string } | { ok: false; error: string; redirectTo?: string };
 
-
-export async function submitShipping(formData: FormData) {
+export async function submitShipping(formData: FormData): Promise<SubmitShippingResult> {
   const firstName = getRequired(formData, "firstName");
   const lastName = getRequired(formData, "lastName");
   const email = getRequired(formData, "email");
@@ -264,19 +264,29 @@ export async function submitShipping(formData: FormData) {
     !city ||
     !country
   ) {
-    redirect("/checkout/shipping");
+    return { ok: false, error: "Please fill in all required fields correctly." };
   }
 
   const store = await cookies();
   const cartSessionId = store.get(CART_SESSION_COOKIE)?.value?.trim();
 
   if (!cartSessionId) {
-    redirect("/products");
+    return {
+      ok: false,
+      error: "Your cart session has expired. Please return to Shop and try again.",
+      redirectTo: "/products",
+    };
   }
 
   // Server-trusted cart snapshot
   const { items, totals } = await getCheckoutCartSnapshot();
-  if (!items.length) redirect("/products");
+  if (!items.length) {
+    return {
+      ok: false,
+      error: "Your cart is empty. Please add items before proceeding to checkout.",
+      redirectTo: "/products",
+    };
+  }
 
   const existingCheckoutId = store.get(CHECKOUT_SESSION_COOKIE)?.value?.trim();
 
@@ -378,11 +388,15 @@ export async function submitShipping(formData: FormData) {
   });
 
   if (result.mode === "missing_cart") {
-    redirect("/products");
+    return {
+      ok: false,
+      error: "We couldn't find your cart. Please return to Shop and try again.",
+      redirectTo: "/products",
+    };
   }
 
   // Ensure cookie is set to the active session
   store.set(CHECKOUT_SESSION_COOKIE, result.checkoutSessionId, cookieOptions);
 
-  redirect("/checkout/payment");
+  return { ok: true, checkoutSessionId: result.checkoutSessionId };
 }

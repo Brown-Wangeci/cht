@@ -6,6 +6,7 @@ import styles from "./ChangeItemsButton.module.css";
 import { useCartStore } from "@/lib/stores/cart";
 
 export default function ChangeItemsButton() {
+  console.log("Rendering ChangeItemsButton");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +16,11 @@ export default function ChangeItemsButton() {
   const setError = useCartStore((s) => s.setError);
   const rehydrateCart = useCartStore((s) => s.rehydrateCart)
 
+  console.log("Cart locked state:", locked);
+
   if (!locked) return null;
+
+  console.log("Rendering ChangeItemsButton for locked cart");
 
   const handleCancelCheckout = async () => {
     if (loading) return;
