@@ -22,13 +22,11 @@ export default function Hero() {
               sizes="(max-width: 900px) 100vw, 100vw"
             />
           </div>
-          {/* <div className={styles.overlay}></div> */}
         </div>
 
         <div className={styles.content}>
           <h1 className={styles.title}>
             {company.company.tradeNames[1]}
-            {/* Elevate Your Tea Experience */}
           </h1>
 
           <p className={styles.subtitle}>
@@ -36,18 +34,10 @@ export default function Hero() {
           </p>
 
           <div className={styles.actions}>
-            <Link href="/products">
-              <button className={styles.cta}>
-                <span>Shop Now</span>
-                <ArrowRight className={styles.ctaIcon} size={16} />
-              </button>
+            <Link href="/products" className={styles.cta}>
+              <span>Shop Now</span>
+              <ArrowRight className={styles.ctaIcon} size={16} aria-hidden />
             </Link>
-
-            {/* <Link href="/about">
-              <Button variant="secondary" className={styles.cta}>
-                Our Story
-              </Button>
-            </Link> */}
           </div>
         </div>
       </div>

@@ -13,7 +13,8 @@ import { getCompany } from "@/lib/company";
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const inCheckout = pathname.startsWith("/checkout");
+  // No cart UI in checkout (cart is locked) or the admin area.
+  const inCheckout = pathname.startsWith("/checkout") || pathname.startsWith("/admin");
 
   const toggleCart = useCartStore((s) => s.toggleCart);
   const isCartOpen = useCartStore((s) => s.isOpen);
@@ -29,6 +30,8 @@ export default function Header() {
 
   const navLinks = [
     { href: "/", label: "Home" },
+    { href: "/about", label: "Our Story" },
+    { href: "/contact", label: "Contact" },
     { href: "/products", label: "Shop" },
   ];
 
@@ -44,7 +47,7 @@ export default function Header() {
   return (
     <div className={styles.headerWrapper}>
       <div className={styles.smallBanner}>
-        <p className={styles.annoucement}>{legalName}</p>
+        <p>{legalName}</p>
       </div>
 
       <header className={styles.header}>
@@ -72,10 +75,10 @@ export default function Header() {
                   type="button"
                   className={styles.cart}
                   onClick={openCart}
-                  aria-label="Open cart"
+                  aria-label={cartCount > 0 ? `Open cart (${cartCount} items)` : "Open cart"}
                 >
                   <div className={styles.cartIconWrap}>
-                    <ShoppingCart size={20} />
+                    <ShoppingCart size={20} aria-hidden />
                     {cartCount > 0 && <CartBadge count={cartCount} />}
                   </div>
                 </button>
@@ -89,10 +92,10 @@ export default function Header() {
                   type="button"
                   className={styles.mobileCart}
                   onClick={openCart}
-                  aria-label="Open cart"
+                  aria-label={cartCount > 0 ? `Open cart (${cartCount} items)` : "Open cart"}
                 >
                   <div className={styles.cartIconWrap}>
-                    <ShoppingCart size={24} />
+                    <ShoppingCart size={24} aria-hidden />
                     {cartCount > 0 && <CartBadge count={cartCount} />}
                   </div>
                 </button>
@@ -102,6 +105,7 @@ export default function Header() {
                 className={styles.mobileToggle}
                 onClick={() => setMobileMenuOpen(true)}
                 aria-label="Open menu"
+                aria-expanded={mobileMenuOpen}
                 type="button"
               >
                 ☰
@@ -112,7 +116,7 @@ export default function Header() {
 
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
-          <div className={styles.mobileMenuOverlay}>
+          <div className={styles.mobileMenuOverlay} role="dialog" aria-modal="true" aria-label="Menu">
             <div className={styles.mobileMenuHeader}>
               <Link
                 href="/"
@@ -154,7 +158,7 @@ export default function Header() {
 
 function CartBadge({ count }: { count: number }) {
   return (
-    <span className={styles.cartBadge}>
+    <span className={styles.cartBadge} aria-hidden>
       {count}
     </span>
   );

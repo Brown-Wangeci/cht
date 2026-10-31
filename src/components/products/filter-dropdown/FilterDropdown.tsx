@@ -4,27 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./FilterDropdown.module.css";
 import { ChevronDown } from "lucide-react";
 
+type Item = { value: string; label: string };
+
 type Props = {
   label: string;
-  items: string[];
-  onChange?(selected: string[]): void;
+  items: Item[];
+  selected: string[];
+  onChange(selected: string[]): void;
 };
 
-export default function FilterDropdown({ label, items, onChange }: Props) {
+export default function FilterDropdown({ label, items, selected, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const toggleItem = (item: string) => {
-    setSelected((prev) => {
-      const exists = prev.includes(item);
-      const next = exists ? prev.filter((i) => i !== item) : [...prev, item];
-      onChange?.(next);
-      return next;
-    });
+  const toggleItem = (value: string) => {
+    const next = selected.includes(value) ? selected.filter((i) => i !== value) : [...selected, value];
+    onChange(next);
   };
 
-  // Close on outside click
+  // Close on outside click / Escape
   useEffect(() => {
     if (!open) return;
 
@@ -34,9 +32,14 @@ export default function FilterDropdown({ label, items, onChange }: Props) {
         setOpen(false);
       }
     };
+    const handleKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
 
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   const hasSelection = selected.length > 0;
@@ -49,23 +52,26 @@ export default function FilterDropdown({ label, items, onChange }: Props) {
         className={`${styles.trigger} ${hasSelection ? styles.triggerActive : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-haspopup="true"
       >
         <span>{triggerLabel}</span>
-        <ChevronDown size={14} className={styles.icon} />
+        <ChevronDown size={14} />
       </button>
 
       {open && (
         <div className={styles.menu}>
-          <div className={styles.menuInner}>
+          <div className={styles.menuInner} role="group" aria-label={label}>
             {items.map((item) => {
-              const isChecked = selected.includes(item);
+              const isChecked = selected.includes(item.value);
 
               return (
                 <button
-                  key={item}
+                  key={item.value}
                   type="button"
+                  role="checkbox"
+                  aria-checked={isChecked}
                   className={`${styles.item} ${isChecked ? styles.itemSelected : ""}`}
-                  onClick={() => toggleItem(item)}
+                  onClick={() => toggleItem(item.value)}
                 >
                   <span
                     className={`${styles.checkbox} ${
@@ -74,7 +80,7 @@ export default function FilterDropdown({ label, items, onChange }: Props) {
                   >
                     <span className={styles.checkboxInner} />
                   </span>
-                  <span className={styles.itemLabel}>{item}</span>
+                  <span className={styles.itemLabel}>{item.label}</span>
                 </button>
               );
             })}
@@ -84,10 +90,7 @@ export default function FilterDropdown({ label, items, onChange }: Props) {
             <button
               type="button"
               className={styles.clear}
-              onClick={() => {
-                setSelected([]);
-                onChange?.([]);
-              }}
+              onClick={() => onChange([])}
             >
               Clear
             </button>

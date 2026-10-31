@@ -1,18 +1,27 @@
-import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import styles from "./OrderSummary.module.css";
 import CustomLink from "@/components/ui/custom-link/CustomLink";
-import { getCheckoutCartSnapshot } from "@/lib/actions/checkout";
+import ProductImage from "@/components/ui/product-image/ProductImage";
 import ChangeItemsButton from "../change-items-button/ChangeItemsButton";
-
+import { getCartSnapshot } from "@/lib/server/cart";
+import { CART_SESSION_COOKIE, asUuid } from "@/lib/server/cookies";
+import { DELIVERY_FEE, deliveryPromo, formatKES } from "@/lib/pricing";
 
 type OrderSummaryProps = {
   hideEditLink?: boolean;
   showChangeItemsButton?: boolean;
+  /** Read a specific cart (e.g. the one a checkout session belongs to) instead of the cookie's. */
+  cartId?: string;
 };
 
-export default async function OrderSummary( { hideEditLink = false, showChangeItemsButton = false }: OrderSummaryProps) {
-  const { items, totals } = await getCheckoutCartSnapshot();
+export default async function OrderSummary({
+  hideEditLink = false,
+  showChangeItemsButton = false,
+  cartId,
+}: OrderSummaryProps) {
+  const store = await cookies();
+  const { items, totals } = await getCartSnapshot(cartId ?? asUuid(store.get(CART_SESSION_COOKIE)?.value));
   const hasItems = items.length > 0;
 
   return (
@@ -24,7 +33,7 @@ export default async function OrderSummary( { hideEditLink = false, showChangeIt
             Edit
           </Link>
         )}
-        { showChangeItemsButton && <ChangeItemsButton /> }
+        { showChangeItemsButton && hasItems && <ChangeItemsButton alwaysVisible /> }
       </div>
 
       {!hasItems ? (
@@ -39,15 +48,13 @@ export default async function OrderSummary( { hideEditLink = false, showChangeIt
             {items.map((item) => (
               <div key={item.variantId} className={styles.item}>
                 <div className={styles.thumb}>
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className={styles.thumbImg}
-                      sizes="56px"
-                    />
-                  ) : null}
+                  <ProductImage
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className={styles.thumbImg}
+                    sizes="56px"
+                  />
 
                   <span className={styles.qtyBadge} aria-label={`Quantity ${item.quantity}`}>
                     {item.quantity}
@@ -62,7 +69,7 @@ export default async function OrderSummary( { hideEditLink = false, showChangeIt
                 </div>
 
                 <div className={styles.itemTotal}>
-                  KSH {(item.price * item.quantity).toFixed(2)}
+                  {formatKES(item.price * item.quantity)}
                 </div>
               </div>
             ))}
@@ -72,22 +79,24 @@ export default async function OrderSummary( { hideEditLink = false, showChangeIt
 
           <div className={styles.row}>
             <span className={styles.label}>Subtotal</span>
-            <span className={styles.value}>KSH {totals.subtotal.toFixed(2)}</span>
+            <span className={styles.value}>{formatKES(totals.subtotal)}</span>
           </div>
 
           <div className={styles.row}>
-            <span className={styles.label}>Shipping</span>
-            <span className={styles.valueMuted}>Calculated at checkout</span>
+            <span className={styles.label}>Delivery</span>
+            <span className={totals.shippingFee > 0 ? styles.value : styles.valueMuted}>
+              {totals.shippingFee > 0 ? formatKES(totals.shippingFee) : "Free"}
+            </span>
           </div>
 
           <div className={styles.divider} />
 
           <div className={styles.totalRow}>
             <span className={styles.totalLabel}>Total</span>
-            <span className={styles.totalValue}>KSH {totals.subtotal.toFixed(2)}</span>
+            <span className={styles.totalValue}>{formatKES(totals.total)}</span>
           </div>
 
-          <p className={styles.note}>Free shipping is applied automatically when eligible.</p>
+          {DELIVERY_FEE > 0 && <p className={styles.note}>{deliveryPromo()}.</p>}
         </>
       )}
     </section>

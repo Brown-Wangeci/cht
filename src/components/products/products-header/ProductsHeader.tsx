@@ -1,21 +1,26 @@
 import Section from "@/components/ui/section/Section";
 import styles from "./ProductsHeader.module.css";
-import FiltersBar from "../filters-bar/FiltersBar";
+import FiltersBar, { type CatalogFilters } from "../filters-bar/FiltersBar";
 import Container from "@/components/common/container/Container";
 
-export default function ProductsHeader() {
+type Props = {
+  categories: string[];
+  current: CatalogFilters;
+};
+
+export default function ProductsHeader({ categories, current }: Props) {
   return (
     <Container>
         <Section
             eyebrow="Our Teas"
             title="Explore Our Products"
-            // subtitle="Browse our curated selection of premium teas sourced directly from the finest plantations."
             align="left"
             paddingBlock="var(--space-xl)"
             marginBottom={false}
+            headingLevel={1}
         >
         <div className={styles.wrapper}>
-            <FiltersBar />
+            <FiltersBar categories={categories} current={current} />
         </div>
         </Section>
     </Container>

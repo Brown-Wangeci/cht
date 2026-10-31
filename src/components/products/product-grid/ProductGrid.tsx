@@ -1,4 +1,4 @@
-import { ProductWithVariants } from '@/lib/products';
+import type { ProductWithVariants } from "@/types/product";
 import styles from './ProductGrid.module.css';
 import ProductCard from '../product-card/ProductCard';
 import Container from '@/components/common/container/Container';

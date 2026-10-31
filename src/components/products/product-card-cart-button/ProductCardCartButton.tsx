@@ -3,7 +3,7 @@
 import { ShoppingCart, Check } from "lucide-react";
 import styles from "./ProductCardCartButton.module.css";
 import { useCartStore } from "@/lib/stores/cart";
-import type { ProductWithVariants } from "@/lib/products";
+import type { ProductWithVariants } from "@/types/product";
 
 type Props = {
   product: ProductWithVariants;

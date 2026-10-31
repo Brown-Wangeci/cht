@@ -71,3 +71,28 @@
     position: static;
   }
 }
+
+.left {
+  min-width: 0;
+}
+
+.right {
+  position: sticky;
+  top: calc(var(--header-height) + 40px + var(--space-lg));
+  align-self: start;
+}
+
+.notice {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: #fdf2f1;
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 960px) {
+  .right {
+    position: static;
+  }
+}

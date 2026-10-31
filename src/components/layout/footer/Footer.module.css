@@ -117,3 +117,36 @@
         flex-direction: column;
     }
 }
+.newsletterForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formSuccess,
+.formError {
+    font-size: 0.85rem;
+    color: var(--color-text-on-dark);
+}
+
+.formError {
+    color: #f3b4ae;
+}
+
+.srOnly,
+.honeypot {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.button:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}

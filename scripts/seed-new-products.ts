@@ -1,6 +1,22 @@
-import { db } from "@/db";
-import { products, productVariants } from "@/db/schema";
+/**
+ * Seeds / refreshes the product catalogue.  Run with:  npm run db:seed
+ *
+ * Safe to re-run: product details, prices and SKUs are updated in place,
+ * but stock levels are only set when a variant is first created.
+ */
+import "dotenv/config";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
+import postgres from "postgres";
+import { products, productVariants } from "../src/db/schema";
 
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not set (see .env.example).");
+  process.exit(1);
+}
+
+const client = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
+const db = drizzle(client);
 
 async function seed() {
   console.log("Seeding products...");
@@ -189,15 +205,45 @@ async function seed() {
   ];
 
   for (const item of data) {
-    await db.insert(products).values(item.product).onConflictDoNothing();
-    await db.insert(productVariants).values({
-      ...item.variant,
-      productId: item.product.id,
-      stockOnHand: 50, // Default seed stock
-    }).onConflictDoNothing();
+    await db
+      .insert(products)
+      .values(item.product)
+      .onConflictDoUpdate({
+        target: products.id,
+        set: {
+          name: sql`excluded.name`,
+          slug: sql`excluded.slug`,
+          category: sql`excluded.category`,
+          description: sql`excluded.description`,
+          images: sql`excluded.images`,
+          tastingNotes: sql`excluded.tasting_notes`,
+          ingredients: sql`excluded.ingredients`,
+        },
+      });
+
+    await db
+      .insert(productVariants)
+      .values({
+        ...item.variant,
+        productId: item.product.id,
+        stockOnHand: 50, // Initial stock for newly created variants only
+      })
+      .onConflictDoUpdate({
+        target: productVariants.id,
+        set: {
+          weightGrams: sql`excluded.weight_grams`,
+          price: sql`excluded.price`,
+          sku: sql`excluded.sku`,
+        },
+      });
   }
 
-  console.log("Seeding completed successfully.");
+  console.log(`Seeded ${data.length} products.`);
 }
 
-seed().catch(console.error);
+seed()
+  .catch((error) => {
+    console.error("Seeding failed:", error);
+    process.exitCode = 1;
+  })
+  .finally(() => client.end());

@@ -1,67 +1,62 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checkoutSessions, carts } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { CART_SESSION_COOKIE, CHECKOUT_SESSION_COOKIE, asUuid } from "@/lib/server/cookies";
 
-const CHECKOUT_COOKIE = "checkout_session";
-const CART_COOKIE = "cart_session";
-
+/**
+ * POST: unlocks the cart so it can be edited again ("Change items").
+ *
+ * The checkout session itself stays pending so the delivery form remains prefilled; payment
+ * cannot start again until the shipping form is re-submitted, which re-locks the cart.
+ * A checkout that has already been paid is never reopened.
+ */
 export async function POST() {
   try {
     const store = await cookies();
-    const checkoutSessionId = store.get(CHECKOUT_COOKIE)?.value?.trim();
-    const cartSessionId = store.get(CART_COOKIE)?.value?.trim();
+    const checkoutSessionId = asUuid(store.get(CHECKOUT_SESSION_COOKIE)?.value);
+    const cartSessionIdCookie = store.get(CART_SESSION_COOKIE)?.value?.trim();
 
-    const res = NextResponse.json({ success: true });
+    const outcome = await db.transaction(async (tx) => {
+      let cartId = cartSessionIdCookie;
 
-    await db.transaction(async (tx) => {
-      // 1) Best path: cancel using checkout session cookie (authoritative)
       if (checkoutSessionId) {
         const [session] = await tx
-          .select()
+          .select({ id: checkoutSessions.id, status: checkoutSessions.status, cartSessionId: checkoutSessions.cartSessionId })
           .from(checkoutSessions)
           .where(eq(checkoutSessions.id, checkoutSessionId))
+          .for("update")
           .limit(1);
 
-        if (session) {
-          // Unlock the cart that THIS checkout session is tied to
-          await tx
-            .update(carts)
-            .set({ status: "open" })
-            .where(eq(carts.id, session.cartSessionId));
-
-          // Mark checkout session cancelled (don’t delete)
-          await tx
-            .update(checkoutSessions)
-            .set({ status: "cancelled" })
-            .where(eq(checkoutSessions.id, checkoutSessionId));
-        }
-
-        // Always clear checkout cookie (even if session not found → stale cookie)
-        res.cookies.delete(CHECKOUT_COOKIE);
-        return;
+        if (session?.status === "paid") return { paid: true as const, ref: session.id };
+        if (session) cartId = session.cartSessionId;
       }
 
-      // 2) Fallback: no checkout cookie, but cart cookie exists
-      //    This is safe IF your cart is locked only via checkout flow.
-      if (cartSessionId) {
-        const [cart] = await tx
-          .select({ status: carts.status })
-          .from(carts)
-          .where(eq(carts.id, cartSessionId))
-          .limit(1);
-
-        // Only unlock if it’s actually locked (avoid flipping ordered carts etc.)
-        if (cart?.status === "locked") {
-          await tx.update(carts).set({ status: "open" }).where(eq(carts.id, cartSessionId));
-        }
+      if (cartId) {
+        await tx
+          .update(carts)
+          .set({ status: "open", lockedAt: null, updatedAt: new Date() })
+          .where(and(eq(carts.id, cartId), eq(carts.status, "locked")));
       }
+
+      return { paid: false as const };
     });
 
-    return res;
+    if (outcome.paid) {
+      return NextResponse.json(
+        {
+          code: "ALREADY_PAID",
+          error: "This order has already been paid.",
+          redirectTo: `/checkout/success?ref=${outcome.ref}`,
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Checkout cancel error:", error);
-    return NextResponse.json({ error: "Failed to cancel checkout" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to unlock cart" }, { status: 500 });
   }
 }

@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./PayNowButton.module.css";
 
-export default function PayNowButton() {
+type Props = {
+  disabled?: boolean;
+};
+
+export default function PayNowButton({ disabled = false }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,20 +19,24 @@ export default function PayNowButton() {
 
     try {
       const res = await fetch("/api/checkout", { method: "POST" });
-      const data = await res.json();
+      const data: { checkoutUrl?: string; error?: string; redirectTo?: string } = await res
+        .json()
+        .catch(() => ({}));
 
-      if (!res.ok) throw new Error(data?.error ?? "Failed to start payment");
-      if (!data?.checkoutUrl) throw new Error("Missing checkout URL");
+      if (!res.ok) {
+        if (data.redirectTo) {
+          router.push(data.redirectTo);
+          return;
+        }
+        throw new Error(data.error ?? "Failed to start payment");
+      }
 
-      window.location.href = data.checkoutUrl;
-    } catch (e: any) {
-        const msg = e?.message ?? "Something went wrong";
-        setError(
-          msg.includes("CART_NOT_LOCKED")
-            ? "Your checkout is no longer active. Please review shipping again."
-            : msg
-        );
-        setLoading(false);
+      if (!data.checkoutUrl) throw new Error("Missing checkout URL");
+
+      window.location.assign(data.checkoutUrl);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+      setLoading(false);
     }
   };
 
@@ -35,14 +45,14 @@ export default function PayNowButton() {
       <button
         type="button"
         onClick={startPayment}
-        disabled={loading}
+        disabled={loading || disabled}
         className={styles.payButton}
       >
         {loading ? "Redirecting…" : "Pay now"}
       </button>
 
       {error && (
-        <p className={styles.errorMessage}>
+        <p className={styles.errorMessage} role="alert">
           {error}
         </p>
       )}

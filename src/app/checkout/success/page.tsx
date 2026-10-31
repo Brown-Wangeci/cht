@@ -1,58 +1,132 @@
-// app/checkout/success/page.tsx
+import type { Metadata } from "next";
+import Link from "next/link";
 import Container from "@/components/common/container/Container";
 import styles from "./SuccessPage.module.css";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { orders, orderItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import ClearCheckoutClient from "./_components/ClearCheckoutClient";
+import { db } from "@/db";
+import { checkoutSessions, orders, orderItems } from "@/db/schema";
+import { CHECKOUT_SESSION_COOKIE, LAST_ORDER_COOKIE, asUuid } from "@/lib/server/cookies";
+import { getCompany } from "@/lib/company";
+import { formatKES, toMoney } from "@/lib/pricing";
+import CheckoutCompleteClient from "./_components/CheckoutCompleteClient";
+import PaymentStatusPoller from "./_components/PaymentStatusPoller";
 
-const CHECKOUT_COOKIE = "checkout_session";
+export const metadata: Metadata = {
+  title: "Order confirmation",
+  robots: { index: false },
+};
 
 type Props = {
-  searchParams?: { ref?: string };
+  searchParams: Promise<{ ref?: string | string[] }>;
 };
 
 export default async function CheckoutSuccessPage({ searchParams }: Props) {
+  const { ref } = await searchParams;
   const store = await cookies();
 
-  const refFromUrl = String(searchParams?.ref ?? "").trim();
-  const refFromCookie = store.get(CHECKOUT_COOKIE)?.value?.trim() ?? "";
-  const checkoutSessionId = refFromUrl || refFromCookie;
+  const checkoutCookie = asUuid(store.get(CHECKOUT_SESSION_COOKIE)?.value);
+  const lastOrderCookie = asUuid(store.get(LAST_ORDER_COOKIE)?.value);
+  const checkoutSessionId = asUuid(Array.isArray(ref) ? ref[0] : ref) ?? checkoutCookie ?? lastOrderCookie;
 
   // If we have no way to identify the checkout, send user back
-  if (!checkoutSessionId) redirect("/checkout/shipping");
+  if (!checkoutSessionId) redirect("/products");
 
-  // Try to find the order created by the webhook
+  // Order details are only shown to the browser that placed the order.
+  const isOwner = checkoutSessionId === checkoutCookie || checkoutSessionId === lastOrderCookie;
+
+  const [session] = await db
+    .select({ id: checkoutSessions.id, status: checkoutSessions.status })
+    .from(checkoutSessions)
+    .where(eq(checkoutSessions.id, checkoutSessionId))
+    .limit(1);
+
+  if (!session) redirect("/products");
+
   const [order] = await db
     .select()
     .from(orders)
     .where(eq(orders.checkoutSessionId, checkoutSessionId))
     .limit(1);
 
-  // If webhook hasn't created the order yet, show "processing" + auto refresh
+  const company = getCompany();
+  const contact = company.contacts.primary;
+
   if (!order) {
+    if (session.status === "failed") {
+      return (
+        <div className={styles.page}>
+          <Container>
+            <header className={styles.header}>
+              <h1 className={styles.title}>Payment not completed</h1>
+              <p className={styles.subtitle}>
+                Your payment didn’t go through and no order was placed. You can try again — your cart and
+                delivery details are saved.
+              </p>
+            </header>
+            {isOwner && (
+              <div className={styles.actions}>
+                <Link href="/checkout/payment" className={styles.button}>
+                  Try payment again
+                </Link>
+                <Link href="/products" className={styles.buttonSecondary}>
+                  Back to shop
+                </Link>
+              </div>
+            )}
+          </Container>
+        </div>
+      );
+    }
+
+    // Webhook hasn't confirmed the payment yet: keep checking for a while.
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <Container>
           <header className={styles.header}>
             <h1 className={styles.title}>Processing payment…</h1>
             <p className={styles.subtitle}>
-              We’re confirming your payment. This usually takes a few seconds.
+              We’re confirming your payment. This usually takes a few seconds — please keep this page open.
             </p>
           </header>
 
           <div className={styles.card}>
-            <p className={styles.processingText}>
-              If you’re not redirected automatically, refresh the page in a moment.
-            </p>
+            <div className={styles.processingText}>
+              <PaymentStatusPoller
+                timeoutMessage={
+                  <p>
+                    This is taking longer than usual. If you completed payment, your order will be confirmed by
+                    email shortly. Questions? Contact us at <a href={`mailto:${contact.email}`}>{contact.email}</a> or{" "}
+                    <a href={`tel:${contact.phone}`}>{contact.phone}</a>.
+                  </p>
+                }
+              />
+            </div>
           </div>
-
-          {/* simple server-side auto refresh */}
-          <meta httpEquiv="refresh" content="3" />
         </Container>
-      </main>
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div className={styles.page}>
+        <Container>
+          <header className={styles.header}>
+            <h1 className={styles.title}>Order confirmed</h1>
+            <p className={styles.subtitle}>
+              This order has been paid. A confirmation with the full details was sent to the email address used at
+              checkout.
+            </p>
+          </header>
+          <div className={styles.actions}>
+            <Link href="/products" className={styles.button}>
+              Continue shopping
+            </Link>
+          </div>
+        </Container>
+      </div>
     );
   }
 
@@ -62,19 +136,19 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
     .from(orderItems)
     .where(eq(orderItems.orderId, order.id));
 
-  // Clear checkout cookie (we're done with the checkout session now)
-  store.delete(CHECKOUT_COOKIE);
+  const shippingFee = toMoney(order.shippingFee);
+  const subtotal = order.subtotal != null ? toMoney(order.subtotal) : toMoney(order.totalAmount);
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <Container>
-        {/* client helper: clears local cart storage so UI doesn't show old cart */}
-        <ClearCheckoutClient />
+        {/* client helper: empties the cart and ends the checkout session */}
+        <CheckoutCompleteClient />
 
         <header className={styles.header}>
           <h1 className={styles.title}>Payment confirmed ✅</h1>
           <p className={styles.subtitle}>
-            Thank you! Your order has been placed successfully.
+            Thank you! Your order has been placed successfully. A confirmation has been sent to {order.email}.
           </p>
         </header>
 
@@ -84,8 +158,8 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
               <h2 className={styles.cardTitle}>Order details</h2>
 
               <div className={styles.row}>
-                <span className={styles.label}>Order ID</span>
-                <span className={styles.valueMono}>{order.id}</span>
+                <span className={styles.label}>Order number</span>
+                <span className={styles.valueMono}>#{order.id.slice(0, 8).toUpperCase()}</span>
               </div>
 
               <div className={styles.row}>
@@ -94,10 +168,8 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
               </div>
 
               <div className={styles.row}>
-                <span className={styles.label}>Total</span>
-                <span className={styles.value}>
-                  KSH {Number(order.totalAmount).toFixed(2)}
-                </span>
+                <span className={styles.label}>Total paid</span>
+                <span className={styles.value}>{formatKES(order.totalAmount)}</span>
               </div>
 
               <div className={styles.divider} />
@@ -123,6 +195,12 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
                 </>
               ) : null}
             </div>
+
+            <div className={styles.actions}>
+              <Link href="/products" className={styles.button}>
+                Continue shopping
+              </Link>
+            </div>
           </div>
 
           <aside className={styles.right} aria-label="Order items">
@@ -139,7 +217,7 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
                       </p>
                     </div>
                     <div className={styles.itemTotal}>
-                      KSH {(Number(i.price) * Number(i.quantity)).toFixed(2)}
+                      {formatKES(toMoney(i.price) * i.quantity)}
                     </div>
                   </div>
                 ))}
@@ -148,15 +226,23 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
               <div className={styles.divider} />
 
               <div className={styles.row}>
+                <span className={styles.label}>Subtotal</span>
+                <span className={styles.value}>{formatKES(subtotal)}</span>
+              </div>
+
+              <div className={styles.row}>
+                <span className={styles.label}>Delivery</span>
+                <span className={styles.value}>{shippingFee > 0 ? formatKES(shippingFee) : "Free"}</span>
+              </div>
+
+              <div className={styles.row}>
                 <span className={styles.label}>Total</span>
-                <span className={styles.value}>
-                  KSH {Number(order.totalAmount).toFixed(2)}
-                </span>
+                <span className={styles.value}>{formatKES(order.totalAmount)}</span>
               </div>
             </div>
           </aside>
         </section>
       </Container>
-    </main>
+    </div>
   );
 }

@@ -1,10 +1,11 @@
-import Image from "next/image";
 import Link from "next/link";
-import type { ProductWithVariants } from "@/lib/products";
+import type { ProductWithVariants } from "@/types/product";
 import Badge, { BadgeVariant } from "../badge/Badge";
 import ProductCardCartButton from "../product-card-cart-button/ProductCardCartButton";
 import styles from "./ProductCard.module.css";
 import RunningLowBadge from "../running-low-badge/RunningLowBadge";
+import ProductImage from "@/components/ui/product-image/ProductImage";
+import { formatKES } from "@/lib/pricing";
 
 type ProductCardProps = {
   product: ProductWithVariants;
@@ -12,8 +13,6 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { name, images = [], isBestSeller, isNew, slug, variants } = product;
-
-  const mainImage = images[0] || "/placeholder.png";
 
   const minPrice =
     variants?.length ? Math.min(...variants.map((v) => v.price)) : 0;
@@ -38,11 +37,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     (v) => (v.stockOnHand ?? 0) > 0 && (v.stockOnHand ?? 0) <= 5
   );
 
-  // const priceLabel =
-  //   variants?.length && variants.length > 1
-  //     ? `From`
-  //     : ``;
-  const from = variants?.length && variants.length > 1; 
+  const from = variants?.length && variants.length > 1;
 
   return (
     <article className={`${styles.card} ${!anyInStock ? styles.soldOut : ""}`}>
@@ -59,8 +54,8 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          <Image
-            src={mainImage}
+          <ProductImage
+            src={images[0]}
             alt={name}
             fill
             className={styles.image}
@@ -72,7 +67,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <h3 className={styles.name}>{name}</h3>
 
           <div className={styles.priceRow}>
-            <span className={styles.currentPrice}> {from && <span className={styles.from} >From</span>}KSH {minPrice.toFixed(2)}</span>
+            <span className={styles.currentPrice}> {from && <span className={styles.from} >From</span>}{formatKES(minPrice)}</span>
           </div>
         </div>
       </Link>

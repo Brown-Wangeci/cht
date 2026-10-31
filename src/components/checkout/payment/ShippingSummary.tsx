@@ -1,25 +1,36 @@
 import Link from "next/link";
 import styles from "./ShippingSummary.module.css";
 
+export type ShippingSummaryData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  country: string | null;
+  notes: string | null;
+};
+
 interface ShippingSummaryProps {
-  session: any;
+  session: ShippingSummaryData;
 }
 
-export default function ShippingSummary({ session }: ShippingSummaryProps) {
-  
-  // Helper: Section Label
-  const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    <h3 className={styles.sectionLabel}>{children}</h3>
-  );
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <h3 className={styles.sectionLabel}>{children}</h3>;
+}
 
-  // Helper: Data Row
-  const DataRow = ({ label, value }: { label: string; value: string | React.ReactNode }) => (
+function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
     <div className={styles.dataRow}>
       <span className={styles.dataLabel}>{label}</span>
       <span className={styles.dataValue}>{value}</span>
     </div>
   );
+}
 
+export default function ShippingSummary({ session }: ShippingSummaryProps) {
   return (
     <section className={styles.container}>
       {/* Header */}
@@ -31,7 +42,7 @@ export default function ShippingSummary({ session }: ShippingSummaryProps) {
       </div>
 
       <div className={styles.contentStack}>
-        
+
         {/* Personal Details Section */}
         <div>
           <SectionLabel>Personal Details</SectionLabel>
@@ -43,14 +54,14 @@ export default function ShippingSummary({ session }: ShippingSummaryProps) {
         {/* Address Details Section */}
         <div>
           <SectionLabel>Address Details</SectionLabel>
-          <DataRow 
-            label="Address:" 
+          <DataRow
+            label="Address:"
             value={
               <>
                 {session.addressLine1}
                 {session.addressLine2 ? `, ${session.addressLine2}` : ""}
               </>
-            } 
+            }
           />
           <DataRow label="City:" value={session.city} />
           {session.country && <DataRow label="Country:" value={session.country} />}
@@ -63,7 +74,7 @@ export default function ShippingSummary({ session }: ShippingSummaryProps) {
             <p className={styles.notesText}>{session.notes}</p>
           </div>
         )}
-        
+
       </div>
     </section>
   );

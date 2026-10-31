@@ -5,59 +5,48 @@ import { useRouter } from "next/navigation";
 import styles from "./ChangeItemsButton.module.css";
 import { useCartStore } from "@/lib/stores/cart";
 
-export default function ChangeItemsButton() {
-  console.log("Rendering ChangeItemsButton");
+type Props = {
+  /** Show regardless of the client-side lock flag (the payment page knows the cart is locked server-side). */
+  alwaysVisible?: boolean;
+};
+
+export default function ChangeItemsButton({ alwaysVisible = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-
 
   const locked = useCartStore((s) => s.locked);
   const setLocked = useCartStore((s) => s.setLocked);
   const setError = useCartStore((s) => s.setError);
-  const rehydrateCart = useCartStore((s) => s.rehydrateCart)
+  const rehydrateCart = useCartStore((s) => s.rehydrateCart);
+  const openCart = useCartStore((s) => s.openCart);
 
-  console.log("Cart locked state:", locked);
+  if (!locked && !alwaysVisible) return null;
 
-  if (!locked) return null;
-
-  console.log("Rendering ChangeItemsButton for locked cart");
-
-  const handleCancelCheckout = async () => {
+  const handleChangeItems = async () => {
     if (loading) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/checkout/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await fetch("/api/checkout/cancel", { method: "POST" });
+      const data: { error?: string; redirectTo?: string } = await res.json().catch(() => ({}));
 
-      const data = await res.json().catch(() => ({}));
-
-
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to cancel checkout");
+      if (res.status === 409 && data.redirectTo) {
+        router.push(data.redirectTo);
+        return;
       }
 
-      // success: unlock cart + clear error
+      if (!res.ok) throw new Error(data.error ?? "Failed to unlock your cart");
+
+      // Cart is editable again; delivery details stay saved for when the shopper returns.
       setLocked(false);
-      setError(null);
+      await rehydrateCart();
 
-      // Optional but good: refresh state from server after cancel
-      void rehydrateCart();
-
-      /**
-       * ✅ Cart is now unlocked
-       * ✅ Checkout session is cancelled
-       * User can safely modify cart
-       */
-      router.push("/products"); // or "/checkout/shipping"
-      router.refresh();
-    } catch (err: any) {
-      setLoading(false);
-      alert(err.message || "An unexpected error occurred");
+      router.push("/products");
+      openCart();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -66,11 +55,11 @@ export default function ChangeItemsButton() {
   return (
     <button
       type="button"
-      onClick={handleCancelCheckout}
+      onClick={handleChangeItems}
       disabled={loading}
       className={styles.changeItemsButton}
     >
-        {loading ? "Changing…" : "Change Items"}
+      {loading ? "Changing…" : "Change items"}
     </button>
   );
 }

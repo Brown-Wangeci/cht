@@ -1,5 +1,5 @@
 // components/products/product-details/RelatedProductsSection.tsx
-import { Product, ProductWithVariants } from "@/lib/products";
+import type { ProductWithVariants } from "@/types/product";
 import ProductCard from "@/components/products/product-card/ProductCard";
 import Section from "@/components/ui/section/Section";
 import styles from "./RelatedProductsSection.module.css";

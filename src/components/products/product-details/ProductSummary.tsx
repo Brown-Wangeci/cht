@@ -1,25 +1,28 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import type { ProductWithVariants } from "@/lib/products";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ProductWithVariants } from "@/types/product";
 import styles from "./ProductSummary.module.css";
 import Button from "@/components/ui/button/Button";
 import { Truck, ShieldCheck, ClockFading } from "lucide-react";
 import QuantitySelector from "./QuantitySelector";
 import { useCartStore } from "@/lib/stores/cart";
+import { deliveryPromo, formatKES } from "@/lib/pricing";
 
 type Props = {
   product: ProductWithVariants;
 };
 
+/** Rendered with `key={product.id}` so variant selection resets when navigating between products. */
 export default function ProductSummary({ product }: Props) {
+  const router = useRouter();
   const { name, variants } = product;
 
-  const [selectedVariantId, setSelectedVariantId] = useState<string>(() => variants?.[0]?.id ?? "");
-
-  useEffect(() => {
-    setSelectedVariantId(variants?.[0]?.id ?? "");
-  }, [product.id, variants]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(
+    () => variants.find((v) => (v.stockOnHand ?? 0) > 0)?.id ?? variants[0]?.id ?? ""
+  );
+  const [buying, setBuying] = useState(false);
 
   const selectedVariant = useMemo(() => {
     if (!variants?.length) return undefined;
@@ -30,9 +33,12 @@ export default function ProductSummary({ product }: Props) {
   const addItem = useCartStore((s) => s.addItem);
   const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
   const openCart = useCartStore((s) => s.openCart);
+  const syncNow = useCartStore((s) => s.syncNow);
 
   const syncing = useCartStore((s) => s.syncing);
   const dirty = useCartStore((s) => s.dirty);
+  const locked = useCartStore((s) => s.locked);
+  const cartError = useCartStore((s) => s.error);
 
   const variantInCart = selectedVariant ? items.find((i) => i.variantId === selectedVariant.id) : undefined;
 
@@ -41,14 +47,12 @@ export default function ProductSummary({ product }: Props) {
   const stockOnHand = selectedVariant?.stockOnHand ?? 0;
   const soldOut = !selectedVariant || stockOnHand <= 0;
 
-  const disabled = soldOut || syncing || dirty;
+  const disabled = soldOut || syncing || dirty || buying;
 
   const price: number = selectedVariant?.price ?? 0;
 
-  const handleIncrement = () => {
-    if (!selectedVariant || disabled) return;
-
-    addItem({
+  const toCartItem = () =>
+    selectedVariant && {
       variantId: selectedVariant.id,
       productId: product.id,
       slug: product.slug,
@@ -58,7 +62,12 @@ export default function ProductSummary({ product }: Props) {
       weightGrams: selectedVariant.weightGrams,
       price: selectedVariant.price,
       stockOnHand: selectedVariant.stockOnHand ?? 0,
-    });
+    };
+
+  const handleIncrement = () => {
+    const item = toCartItem();
+    if (!item || disabled) return;
+    addItem(item);
   };
 
   const handleDecrement = () => {
@@ -79,46 +88,49 @@ export default function ProductSummary({ product }: Props) {
     openCart();
   };
 
-  const handleBuyNow = () => {
-    if (!selectedVariant || disabled) return;
+  const handleBuyNow = async () => {
+    const item = toCartItem();
+    if (!item || disabled) return;
 
-    // If item is not yet in cart, add 1
-    if (!variantInCart) {
-      addItem({
-        variantId: selectedVariant.id,
-        productId: product.id,
-        slug: product.slug,
-        name: product.name,
-        category: product.category,
-        image: product.images?.[0] ?? "",
-        weightGrams: selectedVariant.weightGrams,
-        price: selectedVariant.price,
-        stockOnHand: selectedVariant.stockOnHand ?? 0,
-      });
+    // A cart mid-checkout can't change: take the shopper back to payment instead.
+    if (locked) {
+      router.push("/checkout/payment");
+      return;
     }
 
-    // Go straight to cart / checkout
-    openCart();
+    setBuying(true);
+    if (!variantInCart) addItem(item);
+
+    // Make sure the server has the cart before the (server-rendered) checkout reads it.
+    const synced = await syncNow();
+    setBuying(false);
+
+    if (synced) router.push("/checkout/shipping");
+    else openCart();
   };
 
   const MAX_PER_ORDER = 99;
   const maxQty = Math.min(MAX_PER_ORDER, stockOnHand);
 
+  const tagline = product.tastingNotes?.length
+    ? product.tastingNotes.join(" · ")
+    : product.category;
+
   return (
     <section className={styles.summary}>
       <h1 className={styles.title}>{name}</h1>
 
-      <p className={styles.subtitle}>Premium Kenyan tea—crafted for a clean cup and a bold finish.</p>
+      <p className={styles.subtitle}>{tagline}</p>
 
       {/* Variant Picker */}
       {variants?.length ? (
-        <div className={styles.variantPicker} aria-label="Choose size">
-          <p className={styles.variantLabel}>Size</p>
+        <div className={styles.variantPicker}>
+          <p className={styles.variantLabel} id="variant-label">Size</p>
 
-          <div className={styles.variantChips} role="radiogroup" aria-label="Select grams">
+          <div className={styles.variantChips} role="radiogroup" aria-labelledby="variant-label">
             {variants.map((v) => {
               const out = (v.stockOnHand ?? 0) <= 0;
-              const active = v.id === selectedVariantId;
+              const active = v.id === selectedVariant?.id;
 
               return (
                 <button
@@ -131,8 +143,6 @@ export default function ProductSummary({ product }: Props) {
                   ].join(" ")}
                   onClick={() => setSelectedVariantId(v.id)}
                   disabled={syncing || dirty}
-                  aria-disabled={syncing || dirty}
-                  aria-pressed={active}
                   role="radio"
                   aria-checked={active}
                   title={out ? "Out of stock" : undefined}
@@ -148,10 +158,9 @@ export default function ProductSummary({ product }: Props) {
             <p className={styles.variantHint}>
               {selectedVariant.stockOnHand != null && selectedVariant.stockOnHand > 0 ? (
                 <>
-                  {/* {selectedVariant.stockOnHand} left */}
                   {selectedVariant.stockOnHand <= 5 && (
                     <span className={styles.lowStockAlert}>
-                      <ClockFading size={12} /> Only {selectedVariant.stockOnHand} left !!
+                      <ClockFading size={12} /> Only {selectedVariant.stockOnHand} left
                     </span>
                   )}
                 </>
@@ -166,7 +175,7 @@ export default function ProductSummary({ product }: Props) {
 
       <div className={styles.priceBlock}>
         <div className={styles.priceRow}>
-          <span className={styles.currentPrice}>KSH {price.toFixed(2)}</span>
+          <span className={styles.currentPrice}>{formatKES(price)}</span>
         </div>
       </div>
 
@@ -178,8 +187,8 @@ export default function ProductSummary({ product }: Props) {
             onDecrement={handleDecrement}
             min={0}
             max={maxQty}
-            disableDecrement={!variantInCart || disabled}
-            disableIncrement={disabled || quantity >= maxQty}
+            disableDecrement={!variantInCart || disabled || locked}
+            disableIncrement={disabled || locked || quantity >= maxQty}
           />
         </div>
       )}
@@ -191,19 +200,25 @@ export default function ProductSummary({ product }: Props) {
 
         {!soldOut && (
           <Button variant="secondary" className={styles.secondaryButton} disabled={disabled} onClick={handleBuyNow}>
-            Buy Now
+            {buying ? "Preparing checkout…" : "Buy Now"}
           </Button>
         )}
       </div>
 
+      {cartError && (
+        <p role="status" className={styles.variantHint}>
+          {cartError}
+        </p>
+      )}
+
       <div className={styles.trustRow}>
         <div className={styles.trustItem}>
           <Truck size={16} />
-          <span>Free shipping over KSH 5,000</span>
+          <span>{deliveryPromo()}</span>
         </div>
         <div className={styles.trustItem}>
           <ShieldCheck size={16} />
-          <span>Secure payments</span>
+          <span>Secure payments via M-Pesa &amp; card</span>
         </div>
       </div>
     </section>

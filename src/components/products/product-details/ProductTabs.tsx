@@ -4,38 +4,39 @@ import { useState } from "react";
 import styles from "./ProductTabs.module.css";
 
 type Props = {
+  name: string;
   description?: string;
   ingredients: string | null;
   tastingNotes: string[] | null;
 };
 
-type TabKey = "Description" | "Ingredients & Brewing" | "Customer Reviews";
+type TabKey = "Description" | "Ingredients & Tasting Notes";
+
+const tabId = (tab: TabKey) => `tab-${tab.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
 export default function ProductTabs({
+  name,
   description,
   ingredients,
   tastingNotes,
 }: Props) {
-  
-  // Build only the tabs that have data (Customer Reviews always shown here)
-  const availableTabs: TabKey[] = [];
-  
-  if (description) availableTabs.push("Description");
-  
-  if (ingredients || (tastingNotes?.length ?? 0) > 0) {
-    availableTabs.push("Ingredients & Brewing");
-  }
-  
-  availableTabs.push("Customer Reviews");
 
-  const [active, setActive] = useState<TabKey>(() => availableTabs[0]);
-  
-  const safeActive = availableTabs.includes(active)
+  // Build only the tabs that have data
+  const availableTabs: TabKey[] = [];
+
+  if (description) availableTabs.push("Description");
+
+  if (ingredients || (tastingNotes?.length ?? 0) > 0) {
+    availableTabs.push("Ingredients & Tasting Notes");
+  }
+
+  const [active, setActive] = useState<TabKey | undefined>(() => availableTabs[0]);
+
+  const safeActive = active && availableTabs.includes(active)
     ? active
     : availableTabs[0];
 
-  // If literally nothing is available (unlikely since reviews is always pushed), render nothing
-  if (availableTabs.length === 0) return null;
+  if (!safeActive) return null;
 
   return (
     <div className={styles.tabs}>
@@ -45,7 +46,9 @@ export default function ProductTabs({
             key={tab}
             type="button"
             role="tab"
+            id={tabId(tab)}
             aria-selected={safeActive  === tab}
+            aria-controls="product-tab-panel"
             className={`${styles.tab} ${
               safeActive  === tab ? styles.tabActive : ""
             }`}
@@ -56,50 +59,34 @@ export default function ProductTabs({
         ))}
       </div>
 
-      <div className={styles.panel}>
+      <div className={styles.panel} role="tabpanel" id="product-tab-panel" aria-labelledby={tabId(safeActive)}>
         {safeActive === "Description" && description && (
           <div>
-            <h3 className={styles.panelTitle}>A Taste of the Kenyan Sun</h3>
+            <h2 className={styles.panelTitle}>About {name}</h2>
             <p className={styles.paragraph}>{description}</p>
           </div>
         )}
 
-        {safeActive === "Ingredients & Brewing" && (
+        {safeActive === "Ingredients & Tasting Notes" && (
           <div>
-            {(ingredients || (tastingNotes?.length ?? 0) > 0) && (
-              <>
-                <h3 className={styles.panelTitle}>Ingredients & Brewing</h3>
+            <h2 className={styles.panelTitle}>Ingredients & Tasting Notes</h2>
 
-                {ingredients && (
-                  <p className={styles.paragraph}>
-                    <strong>Ingredients:</strong> {ingredients}
-                  </p>
-                )}
-
-                {Array.isArray(tastingNotes) && tastingNotes.length > 0 && (
-                  <div className={styles.notes}>
-                    <strong>Tasting notes:</strong>
-                    <ul>
-                      {tastingNotes.map((note) => (
-                        <li key={note}>{note}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
+            {ingredients && (
+              <p className={styles.paragraph}>
+                <strong>Ingredients:</strong> {ingredients}
+              </p>
             )}
-          </div>
-        )}
 
-        {safeActive === "Customer Reviews" && (
-          <div>
-            <h3 className={styles.panelTitle}>
-              Customer Reviews
-            </h3>
-            <p className={styles.paragraph}>
-              Reviews will appear here. For now, enjoy your tea knowing others
-              love it too.
-            </p>
+            {Array.isArray(tastingNotes) && tastingNotes.length > 0 && (
+              <div className={styles.notes}>
+                <strong>Tasting notes:</strong>
+                <ul>
+                  {tastingNotes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>

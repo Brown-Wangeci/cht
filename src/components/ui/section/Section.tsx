@@ -8,6 +8,7 @@ type SectionProps = {
   align?: 'left' | 'center';
   paddingBlock?: string;
   marginBottom?: boolean;
+  headingLevel?: 1 | 2;
 };
 
 export default function Section({
@@ -18,13 +19,17 @@ export default function Section({
   align = 'left',
   paddingBlock = 'var(--space-4xl)',
   marginBottom = true,
+  headingLevel = 2,
 }: SectionProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
+  const headerClass = [marginBottom ? styles.header : '', styles[align]].filter(Boolean).join(' ');
+
   return (
     <section className={styles.section} style={{ paddingBlock }}>
       {(eyebrow || title || subtitle) && (
-        <div className={( marginBottom ? ` ${styles.header}` : '' + `${styles[align]}`)}>
+        <div className={headerClass}>
           {eyebrow && <p className={styles.eyebrow}>{eyebrow}</p>}
-          {title && <h2 className={styles.title}>{title}</h2>}
+          {title && <Heading className={styles.title}>{title}</Heading>}
           {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
         </div>
       )}

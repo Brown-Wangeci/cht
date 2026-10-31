@@ -1,154 +1,121 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/db";
-import { carts, checkoutSessions, orders, orderItems, intasendEvents } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { getCheckoutCartSnapshotByCartId } from "@/lib/actions/checkout";
+import { intasendEvents } from "@/db/schema";
+import { asUuid } from "@/lib/server/cookies";
+import { getInvoiceStatus } from "@/lib/server/intasend";
+import { completeCheckout, markCheckoutFailed } from "@/lib/server/orders";
+import { sendOrderEmails } from "@/lib/server/email";
+import { toMoney } from "@/lib/pricing";
+
+/**
+ * IntaSend collection_event webhook.
+ * https://developers.intasend.com/guides/webhooks/
+ *
+ * - Authenticated by the `challenge` string configured in the IntaSend dashboard.
+ * - The body is never trusted for payment state: COMPLETE is re-verified with the status API.
+ * - Unexpected failures return 500 so the delivery shows as failed and can be replayed from the dashboard.
+ */
 
 type IntaSendWebhookPayload = {
-  invoice_id?: string;
-  api_ref?: string;
-  state?: string; // e.g. COMPLETE
-  // ...they include more fields, we store whole payload
+  invoice_id?: string | null;
+  api_ref?: string | null;
+  state?: string | null;
+  provider?: string | null;
+  value?: string | number | null;
+  currency?: string | null;
+  challenge?: string | null;
+  [key: string]: unknown;
 };
 
-async function intasendCheckPaymentStatus(invoiceId: string) {
-  const key = process.env.INTASEND_SECRET_KEY;
-  if (!key) throw new Error("Missing INTASEND_SECRET_KEY");
-
-  const res = await fetch("https://api.intasend.com/api/v1/payment/status/", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ invoice_id: invoiceId }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`IntaSend status check failed: ${res.status} ${text}`);
-  }
-
-  return res.json() as Promise<{ state?: string; invoice_id?: string }>;
-}
+const safeEqual = (a: string, b: string) => {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+};
 
 export async function POST(req: Request) {
+  const expectedChallenge = process.env.INTASEND_WEBHOOK_CHALLENGE?.trim();
+  if (!expectedChallenge) {
+    console.error("IntaSend webhook: INTASEND_WEBHOOK_CHALLENGE is not configured");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
+  let payload: IntaSendWebhookPayload;
   try {
-    const payload = (await req.json()) as IntaSendWebhookPayload;
+    payload = (await req.json()) as IntaSendWebhookPayload;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-    const apiRef = String(payload.api_ref ?? "").trim();     // our checkout_session id
-    const invoiceId = String(payload.invoice_id ?? "").trim();
+  if (!safeEqual(String(payload.challenge ?? ""), expectedChallenge)) {
+    return NextResponse.json({ error: "Invalid challenge" }, { status: 401 });
+  }
 
-    // Record event (optional but recommended for debugging/retries)
-    if (intasendEvents) {
-      await db.insert(intasendEvents).values({
-        apiRef: apiRef || null,
-        invoiceId: invoiceId || null,
-        payload,
-      });
-    }
+  const invoiceId = String(payload.invoice_id ?? "").trim();
+  const rawApiRef = String(payload.api_ref ?? "").trim();
+  const checkoutSessionId = asUuid(rawApiRef);
+  const state = String(payload.state ?? "").toUpperCase();
 
-    if (!apiRef || !invoiceId) {
-      return NextResponse.json({ ok: true }); // don't break webhook retries
-    }
+  try {
+    // Keep an audit trail of every delivery (minus the shared secret).
+    const stored = { ...payload };
+    delete stored.challenge;
+    await db.insert(intasendEvents).values({
+      invoiceId: invoiceId || null,
+      apiRef: rawApiRef || null,
+      state: state || null,
+      payload: stored,
+    });
 
-    // 1) Lookup checkout session
-    const [session] = await db
-      .select()
-      .from(checkoutSessions)
-      .where(eq(checkoutSessions.id, apiRef))
-      .limit(1);
+    // Not one of our checkouts (or a malformed event) — acknowledge so it isn't retried.
+    if (!checkoutSessionId || !invoiceId) return NextResponse.json({ ok: true, ignored: true });
 
-    if (!session) return NextResponse.json({ ok: true });
-
-    // 2) Verify payment status with IntaSend (don’t trust webhook alone)
-    // Endpoint: POST https://api.intasend.com/api/v1/payment/status/ :contentReference[oaicite:2]{index=2}
-    const status = await intasendCheckPaymentStatus(invoiceId);
-    const state = String(status.state ?? payload.state ?? "").toUpperCase();
-
-    if (state !== "COMPLETE" && state !== "COMPLETED") {
-      // Not paid yet: keep pending
+    if (state === "FAILED" || state === "CANCELED") {
+      await markCheckoutFailed(checkoutSessionId);
       return NextResponse.json({ ok: true });
     }
 
-    // 3) Transaction: mark checkout paid, create order once, mark cart ordered
-    await db.transaction(async (tx) => {
-      // If already paid/order exists, exit idempotently
-      const [existingOrder] = await tx
-        .select()
-        .from(orders)
-        .where(eq(orders.checkoutSessionId, session.id))
-        .limit(1);
+    if (state !== "COMPLETE") return NextResponse.json({ ok: true });
 
-      if (existingOrder) return;
+    // Verify with IntaSend before fulfilling.
+    const { invoice } = await getInvoiceStatus(invoiceId);
+    const verifiedState = String(invoice?.state ?? "").toUpperCase();
 
-      // Mark checkout paid + store payment reference
-      await tx
-        .update(checkoutSessions)
-        .set({
-          status: "paid",
-          paymentReference: invoiceId,
-          updatedAt: new Date(),
-        })
-        .where(eq(checkoutSessions.id, session.id));
+    if (verifiedState !== "COMPLETE") {
+      console.warn(`IntaSend webhook: invoice ${invoiceId} reported ${state} but status API says ${verifiedState}`);
+      return NextResponse.json({ ok: true });
+    }
 
-      // Ensure cart is ordered (final)
-      await tx
-        .update(carts)
-        .set({ status: "ordered" })
-        .where(eq(carts.id, session.cartSessionId));
+    if (invoice?.api_ref && invoice.api_ref !== rawApiRef) {
+      console.error(`IntaSend webhook: api_ref mismatch for invoice ${invoiceId}`);
+      return NextResponse.json({ ok: true });
+    }
 
-      // Snapshot items (server-trusted) by cartSessionId (no cookies)
-      const { items, totals } = await getCheckoutCartSnapshotByCartId(session.cartSessionId);
-
-      // Create order
-      const [order] = await tx
-        .insert(orders)
-        .values({
-          checkoutSessionId: session.id,
-          cartSessionId: session.cartSessionId,
-
-          email: session.email,
-          firstName: session.firstName,
-          lastName: session.lastName,
-          phone: session.phone,
-
-          addressLine1: session.addressLine1,
-          addressLine2: session.addressLine2 ?? null,
-          city: session.city,
-          country: session.country ?? "Kenya",
-          notes: session.notes ?? null,
-
-          totalAmount: String(totals.subtotal),
-          currency: session.currency ?? "KES",
-          status: "paid",
-        })
-        .returning();
-
-      // Create order items
-      if (items.length) {
-        await tx.insert(orderItems).values(
-          items.map((i) => ({
-            orderId: order.id,
-            variantId: i.variantId,
-            productId: i.productId,
-            name: i.name,
-            slug: i.slug,
-            category: i.category,
-            image: i.image || "",
-            weightGrams: i.weightGrams,
-            price: String(i.price),
-            quantity: i.quantity,
-          }))
-        );
-      }
+    const result = await completeCheckout({
+      checkoutSessionId,
+      invoiceId,
+      paidAmount: toMoney(invoice?.value ?? payload.value),
+      currency: invoice?.currency ?? payload.currency ?? undefined,
+      provider: invoice?.provider ?? payload.provider ?? undefined,
     });
 
+    if (result.kind === "amount_mismatch") {
+      console.error(
+        `IntaSend webhook: amount mismatch for checkout ${checkoutSessionId} — expected ${result.expected}, paid ${result.paid} ${result.currency ?? ""}. Order NOT created; review manually.`
+      );
+    }
+
+    if (result.kind === "created") {
+      revalidatePath("/");
+      revalidatePath("/products", "layout");
+      await sendOrderEmails(result.order);
+    }
+
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error("IntaSend webhook error:", e);
-    // Always 200-ish to avoid infinite retries while you debug;
-    // once stable you can return 500 to retry.
-    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("IntaSend webhook error:", error);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }

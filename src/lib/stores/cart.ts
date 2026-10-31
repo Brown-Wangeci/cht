@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { calcTotals } from "@/lib/pricing";
 
 export type CartLine = { variantId: string; quantity: number };
 
@@ -30,7 +31,7 @@ interface CartState {
   subtotal: number;
 
   serverItems: CartItem[];
-  locked: boolean; 
+  locked: boolean;
 
   hydrated: boolean;
   syncing: boolean;
@@ -48,6 +49,8 @@ interface CartState {
   decreaseItemQuantity: (variantId: string) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
+  /** Wipes the local cart after an order completes (server cart is already finalised). */
+  resetCart: () => void;
 
   setLocked: (locked: boolean) => void;
   setError: (error: string | null) => void;
@@ -57,18 +60,21 @@ interface CartState {
   toggleCart: () => void;
 
   rehydrateCart: () => Promise<void>;
+  /** Flushes pending changes immediately; resolves true once the server has the current cart. */
+  syncNow: () => Promise<boolean>;
   __flushToServer: () => Promise<void>;
 }
 
 /** ---------- Helpers ---------- **/
-const calcCount = (items: CartItem[]) =>
-  items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+const calcCount = (items: CartItem[]) => calcTotals(items).count;
 
-const calcSubtotal = (items: CartItem[]) =>
-  items.reduce((sum, i) => sum + (Number(i.price) || 0) * (i.quantity || 0), 0);
+const calcSubtotal = (items: CartItem[]) => calcTotals(items).subtotal;
 
 const toLines = (items: CartItem[]): CartLine[] =>
   items.map((i) => ({ variantId: i.variantId, quantity: i.quantity }));
+
+const errorMessage = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
 
 const scheduleFlush = (
   store: { getState: () => CartState; setState: (partial: Partial<CartState>) => void },
@@ -100,7 +106,7 @@ const apiSyncCart = async (lines: CartLine[]) => {
 
   if (!res.ok) {
     // Try to read structured error from API
-    let data: any = null;
+    let data: { code?: string; message?: string; error?: string } | null = null;
     try {
       data = await res.json();
     } catch {
@@ -117,12 +123,17 @@ const apiSyncCart = async (lines: CartLine[]) => {
   return res.json();
 };
 
-const fetchCartFromServer = async (): Promise<CartItem[]> => {
+const fetchCartFromServer = async (): Promise<{ items: CartItem[]; locked: boolean }> => {
   const res = await fetch("/api/cart", { cache: "no-store" });
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error("Failed to load cart from server");
   const data = await res.json();
-  return Array.isArray(data.items) ? data.items : [];
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    locked: data.locked === true,
+  };
 };
+
+const LOCKED_MESSAGE = "Your cart is locked during checkout. Click “Change items” to edit.";
 
 /** ---------- Online retry listeners (attach once) ---------- **/
 let listenersAttached = false;
@@ -185,22 +196,20 @@ export const useCartStore = create<CartState>()(
         try {
           // If we have local unsynced changes, prefer syncing first
           // to avoid snapping UI back to stale server state.
-          if (get().dirty) {
+          if (get().dirty && !get().locked) {
             await get().__flushToServer();
-            // If flush succeeds, dirty will become false and items remain correct.
-            // We can skip fetch, but doing a fetch is harmless (and can pick up server-side fixes).
           }
 
-          const serverItems = await fetchCartFromServer();
-          set({ serverItems });
+          const server = await fetchCartFromServer();
+          set({ serverItems: server.items, locked: server.locked });
 
-          // Only overwrite local if we are NOT dirty anymore
-          // (dirty implies local optimistic state should remain the UI source of truth).
-          if (!get().dirty) {
+          // Server wins unless we still hold unsynced local edits on an editable cart.
+          if (!get().dirty || server.locked) {
             set({
-              items: serverItems,
-              count: calcCount(serverItems),
-              subtotal: calcSubtotal(serverItems),
+              items: server.items,
+              count: calcCount(server.items),
+              subtotal: calcSubtotal(server.items),
+              dirty: false,
               error: null,
               pendingByVariantId: {},
             });
@@ -208,35 +217,39 @@ export const useCartStore = create<CartState>()(
             // still dirty → keep local items
             set({ error: null });
           }
-        } catch (e: any) {
-          // Cart is locked → make it read-only and stop retries
-          if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
-            // rollback to last server snapshot
-            const rollback = get().serverItems;
-            set({
-              items: rollback,
-              count: calcCount(rollback),
-              subtotal: calcSubtotal(rollback),
-              locked: true,
-              error: e?.message ?? "Cart is locked for checkout",
-              dirty: false,
-              pendingByVariantId: {},
-            });
-            return;
-          }
-
+        } catch (e: unknown) {
           // Other errors (network, server, etc.)
           set((s) => ({
-            error: e?.message ?? "Failed to load cart from server",
-            dirty: s.dirty || s.items.length > 0,
+            error: errorMessage(e, "Failed to load cart from server"),
+            dirty: s.dirty,
           }));
         } finally {
           set({ syncing: false });
         }
       },
 
+      syncNow: async () => {
+        const { __timerId } = get();
+        if (__timerId) {
+          clearTimeout(__timerId);
+          set({ __timerId: null });
+        }
+
+        await get().__flushToServer();
+
+        // A flush may already have been in flight (ours is then queued) — wait for it to settle.
+        for (let i = 0; i < 50 && (get().__flushInFlight || get().__timerId || get().dirty); i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (get().error && get().dirty && !get().__flushInFlight) break;
+        }
+
+        const s = get();
+        return !s.dirty && !s.locked;
+      },
+
       __flushToServer: async () => {
         let skipReschedule = false;
+        let retryDelayMs = 200;
         const state = get();
 
         if (state.locked) {
@@ -249,7 +262,7 @@ export const useCartStore = create<CartState>()(
           return;
         }
 
-        set({ __flushInFlight: true, syncing: true });
+        set({ __flushInFlight: true, syncing: true, __timerId: null });
 
         try {
           const snapshot = get().items; // reference snapshot
@@ -270,9 +283,9 @@ export const useCartStore = create<CartState>()(
             // user changed cart while request was in flight
             set({ dirty: true });
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           // Cart is locked: stop retry loop and stop treating it as dirty
-          if (e?.code === "CART_LOCKED" || e?.name === "CartLockedError") {
+          if (e instanceof CartLockedError) {
             // rollback to last server snapshot
             const rollback = get().serverItems;
             set({
@@ -280,13 +293,11 @@ export const useCartStore = create<CartState>()(
               count: calcCount(rollback),
               subtotal: calcSubtotal(rollback),
               locked: true,
-              error: e?.message ?? "Cart is locked for checkout",
+              error: LOCKED_MESSAGE,
               dirty: false,                 // IMPORTANT: stops retry-on-focus/online
               pendingByVariantId: {},        // clear pending
               __flushQueued: false,          // stop queueing
             });
-
-            // void get().rehydrateCart();
 
             skipReschedule = true;
             return; // IMPORTANT: prevents rescheduling
@@ -294,19 +305,21 @@ export const useCartStore = create<CartState>()(
 
           // keep optimistic UI but remain locked (dirty) so checkout/buttons stay disabled
           set((s) => ({
-            error: e?.message ?? "Sync delayed... checking connection",
+            error: errorMessage(e, "Sync delayed... checking connection"),
             dirty: true,
             pendingByVariantId: s.pendingByVariantId,
           }));
+          // Network/server trouble: back off instead of hammering (online/focus listeners also retry).
+          retryDelayMs = 5000;
         } finally {
           set({ __flushInFlight: false, syncing: false });
 
-          if (skipReschedule) return;
-
-          const final = get();
-          if (final.__flushQueued || final.dirty) {
-            set({ __flushQueued: false });
-            scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
+          if (!skipReschedule) {
+            const final = get();
+            if (final.__flushQueued || final.dirty) {
+              set({ __flushQueued: false });
+              scheduleFlush({ getState: get, setState: set }, get().__flushToServer, retryDelayMs);
+            }
           }
         }
       },
@@ -314,20 +327,29 @@ export const useCartStore = create<CartState>()(
       addItem: (variantProduct) => {
 
         if (get().locked) {
-          set({ error: "Cart is locked for checkout" });
+          set({ error: LOCKED_MESSAGE });
           return;
         }
-
 
         const prev = get().items;
         const existing = prev.find((i) => i.variantId === variantProduct.variantId);
 
-        const max = variantProduct.stockOnHand ?? 99;
+        const max = Math.min(99, variantProduct.stockOnHand ?? existing?.stockOnHand ?? 99);
+
+        if (max <= 0) {
+          set({ error: `${variantProduct.name} is out of stock` });
+          return;
+        }
+
+        if (existing && existing.quantity >= max) {
+          set({ error: `Only ${max} of ${variantProduct.name} available` });
+          return;
+        }
 
         const next = existing
           ? prev.map((i) =>
               i.variantId === variantProduct.variantId
-                ? { ...i, quantity: Math.min((i.quantity || 0) + 1, max) }
+                ? { ...i, ...variantProduct, quantity: Math.min((i.quantity || 0) + 1, max) }
                 : i
             )
           : [
@@ -353,7 +375,7 @@ export const useCartStore = create<CartState>()(
       decreaseItemQuantity: (variantId) => {
 
         if (get().locked) {
-          set({ error: "Cart is locked for checkout" });
+          set({ error: LOCKED_MESSAGE });
           return;
         }
 
@@ -381,10 +403,9 @@ export const useCartStore = create<CartState>()(
       removeItem: (variantId) => {
 
         if (get().locked) {
-          set({ error: "Cart is locked for checkout" });
+          set({ error: LOCKED_MESSAGE });
           return;
         }
-
 
         const next = get().items.filter((i) => i.variantId !== variantId);
 
@@ -402,7 +423,7 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         if (get().locked) {
-          set({ error: "Your cart is locked during checkout. Click “Change Items” to edit." });
+          set({ error: LOCKED_MESSAGE });
           return;
         }
 
@@ -421,6 +442,25 @@ export const useCartStore = create<CartState>()(
         scheduleFlush({ getState: get, setState: set }, get().__flushToServer, 200);
       },
 
+      resetCart: () => {
+        const { __timerId } = get();
+        if (__timerId) clearTimeout(__timerId);
+
+        set({
+          isOpen: false,
+          items: [],
+          serverItems: [],
+          count: 0,
+          subtotal: 0,
+          locked: false,
+          dirty: false,
+          error: null,
+          pendingByVariantId: {},
+          __timerId: null,
+          __flushQueued: false,
+        });
+      },
+
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       setLocked: (locked) => set({ locked }),
@@ -429,29 +469,32 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "tea-cart-storage",
+      // Rehydrated from localStorage after mount (see CartHydrator) so the first client
+      // render matches the server HTML.
+      skipHydration: true,
       partialize: (s) => ({
         items: s.items,
         serverItems: s.serverItems,
         locked: s.locked,
         dirty: s.dirty,
-        error: s.error,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
 
-        state.hydrated = true;
-        state.count = calcCount(state.items);
-        state.subtotal = calcSubtotal(state.items);
-
-        (state as any).serverItems = Array.isArray((state as any).serverItems)
-          ? (state as any).serverItems
-          : [];
+        const items = Array.isArray(state.items) ? state.items : [];
+        useCartStore.setState({
+          hydrated: true,
+          items,
+          serverItems: Array.isArray(state.serverItems) ? state.serverItems : [],
+          count: calcCount(items),
+          subtotal: calcSubtotal(items),
+        });
 
         attachRetryListeners();
 
         // If dirty, attempt flush immediately (no refresh required once server returns)
         if (state.dirty) void useCartStore.getState().__flushToServer();
-        else void state.rehydrateCart();
+        else void useCartStore.getState().rehydrateCart();
       },
     }
   )

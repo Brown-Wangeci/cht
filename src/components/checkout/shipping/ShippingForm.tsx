@@ -3,18 +3,45 @@
 import styles from "./ShippingForm.module.css";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { submitShipping, type SubmitShippingResult } from "@/lib/actions/checkout";
+import {
+  submitShipping,
+  type ShippingField,
+  type ShippingValues,
+  type SubmitShippingResult,
+} from "@/lib/actions/checkout";
 import { useCartStore } from "@/lib/stores/cart";
 
 type Props = {
-  initialValues: Record<string, string> | null;
+  initialValues: Partial<ShippingValues> | null;
 };
+
+type FieldProps = {
+  id: ShippingField;
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+};
+
+function Field({ id, label, error, children }: FieldProps) {
+  return (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={id}>{label}</label>
+      {children}
+      {error && (
+        <p id={`${id}-error`} className={styles.fieldError}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function ShippingForm({ initialValues }: Props) {
   const router = useRouter();
 
   // zustand state
   const count = useCartStore((s) => s.count);
+  const hydrated = useCartStore((s) => s.hydrated);
   const dirty = useCartStore((s) => s.dirty);
   const syncing = useCartStore((s) => s.syncing);
 
@@ -23,14 +50,27 @@ export default function ShippingForm({ initialValues }: Props) {
   const setError = useCartStore((s) => s.setError);
   const rehydrateCart = useCartStore((s) => s.rehydrateCart);
 
-  const initialState: SubmitShippingResult = { ok: false, error: "" };
-
-  const [state, formAction, pending] = useActionState<SubmitShippingResult, FormData>(
-    async (_prev, formData) => submitShipping(formData),
-    initialState
+  const [state, formAction, pending] = useActionState<SubmitShippingResult | null, FormData>(
+    submitShipping,
+    null
   );
 
-  const isCartEmpty = count === 0;
+  const failed = state && !state.ok ? state : null;
+  const fieldErrors = failed?.fieldErrors ?? {};
+
+  // Submitted values win (React resets uncontrolled forms after an action), then saved details.
+  const value = (k: ShippingField) =>
+    failed?.values?.[k] ?? initialValues?.[k] ?? (k === "country" ? "Kenya" : "");
+
+  const inputProps = (k: ShippingField) => ({
+    id: k,
+    name: k,
+    defaultValue: value(k),
+    "aria-invalid": fieldErrors[k] ? true : undefined,
+    "aria-describedby": fieldErrors[k] ? `${k}-error` : undefined,
+  });
+
+  const isCartEmpty = hydrated && count === 0;
   const isSyncingBlocked = dirty || syncing;
   const isBlocked = isCartEmpty || isSyncingBlocked || pending;
 
@@ -38,7 +78,7 @@ export default function ShippingForm({ initialValues }: Props) {
   let buttonText = "Continue to payment";
 
   if (pending) {
-    buttonText = "Submitting…";
+    buttonText = "Saving…";
   } else if (isCartEmpty) {
     helperText = "Please add at least one item to your cart to proceed to payment.";
   } else if (isSyncingBlocked) {
@@ -48,25 +88,17 @@ export default function ShippingForm({ initialValues }: Props) {
   useEffect(() => {
     if (!state) return;
 
-    console.log("ShippingForm useActionState result:", state);
-
     if (state.ok) {
       setError(null);
       setLocked(true);      // optimistic UX
       void rehydrateCart(); // confirm from server
       router.push("/checkout/payment");
-      router.refresh();
       return;
     }
 
-    if (!state.ok && state.error) {
+    if (state.redirectTo) {
       setError(state.error);
-      alert(state.error);
-
-      if (state.redirectTo) {
-        router.push(state.redirectTo);
-        router.refresh();
-      }
+      router.push(state.redirectTo);
     }
   }, [state, setError, setLocked, rehydrateCart, router]);
 
@@ -74,120 +106,70 @@ export default function ShippingForm({ initialValues }: Props) {
     <section className={styles.card}>
       <h2 className={styles.cardTitle}>Delivery details</h2>
 
-      <form className={styles.form} action={formAction}>
-        <div className={styles.grid2}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="firstName">First name*</label>
-            <input
-              className={styles.input}
-              id="firstName"
-              name="firstName"
-              autoComplete="given-name"
-              required
-              defaultValue={initialValues?.firstName ?? ""}
-            />
-          </div>
+      <form className={styles.form} action={formAction} noValidate>
+        {failed?.error && (
+          <p className={styles.formError} role="alert">
+            {failed.error}
+          </p>
+        )}
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="lastName">Last name*</label>
-            <input
-              className={styles.input}
-              id="lastName"
-              name="lastName"
-              autoComplete="family-name"
-              required
-              defaultValue={initialValues?.lastName ?? ""}
-            />
-          </div>
+        <div className={styles.grid2}>
+          <Field id="firstName" label="First name*" error={fieldErrors.firstName}>
+            <input className={styles.input} autoComplete="given-name" required maxLength={60} {...inputProps("firstName")} />
+          </Field>
+
+          <Field id="lastName" label="Last name*" error={fieldErrors.lastName}>
+            <input className={styles.input} autoComplete="family-name" required maxLength={60} {...inputProps("lastName")} />
+          </Field>
         </div>
 
         <div className={styles.grid2}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="phone">Phone number*</label>
+          <Field id="phone" label="Phone number*" error={fieldErrors.phone}>
             <input
               className={styles.input}
-              id="phone"
-              name="phone"
+              type="tel"
               autoComplete="tel"
               inputMode="tel"
+              placeholder="0712 345 678"
               required
-              defaultValue={initialValues?.phone ?? ""}
+              maxLength={20}
+              {...inputProps("phone")}
             />
-          </div>
+          </Field>
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="email">Email*</label>
-            <input
-              className={styles.input}
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              defaultValue={initialValues?.email ?? ""}
-            />
-          </div>
+          <Field id="email" label="Email*" error={fieldErrors.email}>
+            <input className={styles.input} type="email" autoComplete="email" required maxLength={254} {...inputProps("email")} />
+          </Field>
         </div>
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="address1">Address line 1*</label>
+        <Field id="address1" label="Address line 1*" error={fieldErrors.address1}>
           <input
             className={styles.input}
-            id="address1"
-            name="address1"
             autoComplete="shipping address-line1"
+            placeholder="Street, building, apartment"
             required
-            defaultValue={initialValues?.address1 ?? ""}
+            maxLength={200}
+            {...inputProps("address1")}
           />
-        </div>
+        </Field>
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="address2">Address line 2 (optional)</label>
-          <input
-            className={styles.input}
-            id="address2"
-            name="address2"
-            autoComplete="shipping address-line2"
-            defaultValue={initialValues?.address2 ?? ""}
-          />
-        </div>
+        <Field id="address2" label="Address line 2 (optional)" error={fieldErrors.address2}>
+          <input className={styles.input} autoComplete="shipping address-line2" maxLength={200} {...inputProps("address2")} />
+        </Field>
 
         <div className={styles.grid2}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="city">City / Town*</label>
-            <input
-              className={styles.input}
-              id="city"
-              name="city"
-              autoComplete="shipping address-level2"
-              required
-              defaultValue={initialValues?.city ?? ""}
-            />
-          </div>
+          <Field id="city" label="City / Town*" error={fieldErrors.city}>
+            <input className={styles.input} autoComplete="shipping address-level2" required maxLength={80} {...inputProps("city")} />
+          </Field>
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="country">Country*</label>
-            <input
-              className={styles.input}
-              id="country"
-              name="country"
-              autoComplete="country-name"
-              required
-              defaultValue={initialValues?.country ?? "Kenya"}
-            />
-          </div>
+          <Field id="country" label="Country*" error={fieldErrors.country}>
+            <input className={styles.input} autoComplete="country-name" required maxLength={60} {...inputProps("country")} />
+          </Field>
         </div>
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="notes">Delivery notes (optional)</label>
-          <textarea
-            className={styles.textarea}
-            id="notes"
-            name="notes"
-            rows={4}
-            defaultValue={initialValues?.notes ?? ""}
-          />
-        </div>
+        <Field id="notes" label="Delivery notes (optional)" error={fieldErrors.notes}>
+          <textarea className={styles.textarea} rows={4} maxLength={500} {...inputProps("notes")} />
+        </Field>
 
         <button className={styles.primaryBtn} type="submit" disabled={isBlocked}>
           {buttonText}

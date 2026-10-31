@@ -1,19 +1,26 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { eq } from "drizzle-orm";
 import styles from "./ShippingPage.module.css";
 import Container from "@/components/common/container/Container";
 import ShippingForm from "@/components/checkout/shipping/ShippingForm";
 import OrderSummary from "@/components/checkout/order-summary/OrderSummary";
-import { cookies } from "next/headers";
 import { db } from "@/db";
 import { checkoutSessions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { CHECKOUT_SESSION_COOKIE, asUuid } from "@/lib/server/cookies";
+import type { ShippingValues } from "@/lib/actions/checkout";
 
-const CHECKOUT_COOKIE = "checkout_session";
+export const metadata: Metadata = {
+  title: "Shipping",
+  robots: { index: false },
+};
 
 export default async function ShippingPage() {
   const store = await cookies();
-  const checkoutSessionId = store.get(CHECKOUT_COOKIE)?.value?.trim();
+  const checkoutSessionId = asUuid(store.get(CHECKOUT_SESSION_COOKIE)?.value);
 
-  let initialValues: Record<string, string> | null = null;
+  let initialValues: Partial<ShippingValues> | null = null;
 
   if (checkoutSessionId) {
     const [session] = await db
@@ -22,8 +29,10 @@ export default async function ShippingPage() {
       .where(eq(checkoutSessions.id, checkoutSessionId))
       .limit(1);
 
-    // Only prefill if session exists AND still pending (editable)
-    if (session && session.status === "pending") {
+    if (session?.status === "paid") redirect(`/checkout/success?ref=${session.id}`);
+
+    // Only prefill if session exists AND is still editable
+    if (session && (session.status === "pending" || session.status === "failed")) {
       initialValues = {
         firstName: session.firstName ?? "",
         lastName: session.lastName ?? "",
@@ -39,7 +48,7 @@ export default async function ShippingPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <Container>
         <header className={styles.header}>
           <h1 className={styles.title}>Shipping</h1>
@@ -58,6 +67,6 @@ export default async function ShippingPage() {
           </aside>
         </section>
       </Container>
-    </main>
+    </div>
   );
 }

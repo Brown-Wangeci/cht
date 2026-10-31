@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import styles from "./CartDrawerItem.module.css";
 import type { CartItem } from "@/lib/stores/cart";
 import { useCartStore } from "@/lib/stores/cart";
+import ProductImage from "@/components/ui/product-image/ProductImage";
+import { formatKES } from "@/lib/pricing";
 
 type Props = {
   item: CartItem;
@@ -14,25 +15,28 @@ export default function CartDrawerItem({ item }: Props) {
   const addItem = useCartStore((s) => s.addItem);
   const decreaseItemQuantity = useCartStore((s) => s.decreaseItemQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
+  const closeCart = useCartStore((s) => s.closeCart);
 
   const syncing = useCartStore((s) => s.syncing);
   const dirty = useCartStore((s) => s.dirty);
+  const locked = useCartStore((s) => s.locked);
   const pending = useCartStore((s) => !!s.pendingByVariantId[item.variantId]);
 
-  const disabled = syncing || dirty || pending;
+  const disabled = syncing || dirty || pending || locked;
+  const maxQty = Math.min(99, item.stockOnHand ?? 99);
 
   return (
-    <div className={styles.item} aria-busy={disabled}>
-      <Link href={`/products/${item.slug}`} className={styles.imageWrap}>
-        <Image src={item.image} alt={item.name} fill className={styles.image} sizes="56px" />
+    <div className={styles.item} aria-busy={syncing || pending}>
+      <Link href={`/products/${item.slug}`} className={styles.imageWrap} onClick={closeCart}>
+        <ProductImage src={item.image} alt={item.name} fill className={styles.image} sizes="56px" />
       </Link>
 
       <div className={styles.info}>
-        <Link href={`/products/${item.slug}`} className={styles.name}>
+        <Link href={`/products/${item.slug}`} className={styles.name} onClick={closeCart}>
           {item.name}
         </Link>
         <p className={styles.meta}>
-          {item.category} • {item.weightGrams}g
+          {item.category} • {item.weightGrams}g • {formatKES(item.price)}
         </p>
       </div>
 
@@ -43,12 +47,12 @@ export default function CartDrawerItem({ item }: Props) {
             className={styles.qtyBtn}
             onClick={() => decreaseItemQuantity(item.variantId)}
             disabled={disabled}
-            aria-label="Decrease quantity"
+            aria-label={`Decrease quantity of ${item.name}`}
           >
             −
           </button>
 
-          <span className={styles.qtyVal}>{item.quantity}</span>
+          <span className={styles.qtyVal} aria-live="polite">{item.quantity}</span>
 
           <button
             type="button"
@@ -63,11 +67,11 @@ export default function CartDrawerItem({ item }: Props) {
                 image: item.image,
                 weightGrams: item.weightGrams,
                 price: item.price,
-                stockOnHand: item.stockOnHand ?? 0,
+                stockOnHand: item.stockOnHand,
               })
             }
-            disabled={disabled}
-            aria-label="Increase quantity"
+            disabled={disabled || item.quantity >= maxQty}
+            aria-label={`Increase quantity of ${item.name}`}
           >
             +
           </button>
@@ -78,7 +82,7 @@ export default function CartDrawerItem({ item }: Props) {
           className={styles.remove}
           onClick={() => removeItem(item.variantId)}
           disabled={disabled}
-          aria-label="Remove item"
+          aria-label={`Remove ${item.name}`}
         >
           Remove
         </button>
